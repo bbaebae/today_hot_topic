@@ -12,9 +12,7 @@ export default defineConfig({
     },
     define: {
       'import.meta.env.PUBLIC_USE_MOCK': JSON.stringify(
-        process.env.PUBLIC_USE_MOCK === 'true' || process.env.NODE_ENV === 'development'
-          ? 'true'
-          : 'false'
+        process.env.PUBLIC_USE_MOCK !== 'false' ? 'true' : 'false'
       ),
     },
   },

@@ -10,13 +10,16 @@ import { useState, useEffect } from 'react';
 import { appLogin, Storage } from '@apps-in-toss/web-framework';
 
 const TOKEN_KEY = 'server_jwt';
+const IS_MOCK = import.meta.env.PUBLIC_USE_MOCK === 'true';
 
 export function useAuth() {
   const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!IS_MOCK);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (IS_MOCK) return;
+
     Storage.getItem(TOKEN_KEY)
       .then((saved) => {
         if (saved) {

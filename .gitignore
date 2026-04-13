@@ -1,9 +1,9 @@
 # ──── Frontend ────
-1. search ranking/node_modules/
-1. search ranking/dist/
-1. search ranking/.yarn/cache/
-1. search ranking/.yarn/install-state.gz
-1. search ranking/.pnp.*
+today-hot-topic/node_modules/
+today-hot-topic/dist/
+today-hot-topic/.yarn/cache/
+today-hot-topic/.yarn/install-state.gz
+today-hot-topic/.pnp.*
 
 # ──── Backend ────
 backend/.env

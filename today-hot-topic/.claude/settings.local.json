@@ -24,7 +24,16 @@
       "Bash(vercel dist/ --prod --yes)",
       "Bash(vercel --prod --yes)",
       "Read(//Users/bbaebae/Desktop/appintoss/**)",
-      "Bash(gh auth:*)"
+      "Bash(gh auth:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(gh repo:*)",
+      "Bash(git remote:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(npm info:*)",
+      "WebFetch(domain:appintoss-three.vercel.app)"
     ],
     "additionalDirectories": [
       "/Users/bbaebae/Desktop/appintoss/backend",

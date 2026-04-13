@@ -1,0 +1,22 @@
+# ──── Frontend ────
+1. search ranking/node_modules/
+1. search ranking/dist/
+1. search ranking/.yarn/cache/
+1. search ranking/.yarn/install-state.gz
+1. search ranking/.pnp.*
+
+# ──── Backend ────
+backend/.env
+backend/certs/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/**/*.pyc
+backend/.venv/
+backend/venv/
+backend/*.egg-info/
+
+# ──── OS / IDE ────
+.DS_Store
+.idea/
+.vscode/
+*.swp

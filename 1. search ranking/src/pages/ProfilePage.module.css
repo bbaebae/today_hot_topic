@@ -1,0 +1,248 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--color-gray-50);
+}
+
+.header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  height: 56px;
+  padding: 0 20px;
+  background: #ffffff;
+  border-bottom: 1px solid var(--color-gray-100);
+}
+
+.headerTitle {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--color-gray-900);
+}
+
+.scrollArea {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.scrollArea::-webkit-scrollbar {
+  display: none;
+}
+
+/* 포인트 카드 */
+.pointCard {
+  background: linear-gradient(135deg, #3182F6, #1b64da);
+  border-radius: var(--radius-xl);
+  padding: 24px 20px;
+  color: #ffffff;
+}
+
+.pointLabel {
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0.85;
+  margin-bottom: 8px;
+}
+
+.pointAmount {
+  font-size: 40px;
+  font-weight: 900;
+  letter-spacing: -1.5px;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.unit {
+  font-size: 24px;
+  font-weight: 700;
+  margin-left: 2px;
+}
+
+.todayEarned {
+  font-size: 13px;
+  opacity: 0.8;
+  font-weight: 500;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.pointSkeleton {
+  height: 40px;
+  width: 140px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.2) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  margin-bottom: 8px;
+}
+
+/* 섹션 공통 */
+.section {
+  background: #ffffff;
+  border-radius: var(--radius-xl);
+  padding: 20px;
+}
+
+.sectionTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-gray-800);
+  margin-bottom: 16px;
+}
+
+.sectionRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* 도파민 패스 */
+.passTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-gray-900);
+  margin-bottom: 4px;
+}
+
+.passDesc {
+  font-size: 13px;
+  color: var(--color-gray-500);
+}
+
+.subscribeBtn {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  background: var(--color-blue-500);
+  color: #ffffff;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 700;
+  transition: background-color 0.15s;
+}
+
+.subscribeBtn:active {
+  background: var(--color-blue-600);
+}
+
+/* 내역 리스트 */
+.historyList {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.historyItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--color-gray-100);
+}
+
+.historyItem:last-child {
+  border-bottom: none;
+}
+
+.historyLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.historyReason {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-gray-800);
+}
+
+.historyDate {
+  font-size: 12px;
+  color: var(--color-gray-400);
+}
+
+.historyAmount {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-blue-500);
+}
+
+.historySkeletonWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.historySkeleton {
+  height: 44px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--color-gray-100) 25%, var(--color-gray-50) 50%, var(--color-gray-100) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+.emptyText {
+  font-size: 14px;
+  color: var(--color-gray-400);
+  text-align: center;
+  padding: 20px 0;
+}
+
+/* 알림 토글 */
+.toggleLabel {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-gray-800);
+}
+
+.toggle {
+  position: relative;
+  width: 48px;
+  height: 28px;
+  display: inline-block;
+}
+
+.toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggleSlider {
+  position: absolute;
+  inset: 0;
+  background: var(--color-gray-200);
+  border-radius: 28px;
+  transition: background 0.2s;
+  cursor: pointer;
+}
+
+.toggleSlider::before {
+  content: '';
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  top: 3px;
+  left: 3px;
+  background: #ffffff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.toggle input:checked + .toggleSlider {
+  background: var(--color-blue-500);
+}
+
+.toggle input:checked + .toggleSlider::before {
+  transform: translateX(20px);
+}

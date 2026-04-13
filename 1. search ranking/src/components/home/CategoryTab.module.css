@@ -1,0 +1,35 @@
+.tabBar {
+  display: flex;
+  align-items: stretch;
+  background: #ffffff;
+  border-bottom: 1px solid var(--color-gray-100);
+  flex-shrink: 0;
+}
+
+.tabItem {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 48px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-gray-500);
+  transition: color 0.15s;
+}
+
+.tabItem.active {
+  color: var(--color-gray-900);
+  font-weight: 700;
+}
+
+.indicator {
+  position: absolute;
+  bottom: 0;
+  left: 16px;
+  right: 16px;
+  height: 2px;
+  background: var(--color-blue-500);
+  border-radius: 2px 2px 0 0;
+}

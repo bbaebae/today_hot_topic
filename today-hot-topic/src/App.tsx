@@ -1,6 +1,7 @@
+import { lazy, Suspense } from 'react';
 import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { TDSMobileAITProvider } from '@toss/tds-mobile-ait';
+import type { ReactNode } from 'react';
 import { useDeviceViewport } from './hooks/useDeviceViewport';
 import { useAuth } from './hooks/useAuth';
 import { BottomNav } from './components/layout/BottomNav';
@@ -66,12 +67,28 @@ function AppInner() {
   );
 }
 
+const IS_MOCK = import.meta.env.PUBLIC_USE_MOCK === 'true';
+
+function PassThrough({ children }: { children: ReactNode }) {
+  return <>{children}</>;
+}
+
+// mock 모드에서는 @toss/tds-mobile-ait를 번들에서 완전히 제외
+// (해당 패키지는 Toss 앱 환경에서만 동작하며, 일반 브라우저에서 모듈 초기화 시 throw)
+const TDSProvider = IS_MOCK
+  ? PassThrough
+  : lazy(() =>
+      import('@toss/tds-mobile-ait').then((m) => ({ default: m.TDSMobileAITProvider }))
+    );
+
 export default function App() {
   return (
-    <TDSMobileAITProvider>
-      <HashRouter>
-        <AppInner />
-      </HashRouter>
-    </TDSMobileAITProvider>
+    <Suspense fallback={null}>
+      <TDSProvider>
+        <HashRouter>
+          <AppInner />
+        </HashRouter>
+      </TDSProvider>
+    </Suspense>
   );
 }

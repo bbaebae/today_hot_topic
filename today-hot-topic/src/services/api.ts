@@ -1,7 +1,9 @@
 import { safeStorage } from '../utils/toss';
 
 const USE_MOCK = import.meta.env.PUBLIC_USE_MOCK === 'true';
-const BASE_URL = '/api/v1';
+const BASE_URL = import.meta.env.PUBLIC_API_BASE_URL
+  ? `${import.meta.env.PUBLIC_API_BASE_URL}/api/v1`
+  : '/api/v1';
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

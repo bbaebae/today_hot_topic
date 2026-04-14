@@ -3,7 +3,7 @@
 export const config = { runtime: 'edge' };
 
 const TRENDS_RSS_URL =
-  'https://trends.google.com/trends/trendingsearches/daily/rss?geo=KR';
+  'https://trends.google.com/trending/rss?geo=KR';
 
 interface TrendingResponse {
   keywords: string[];

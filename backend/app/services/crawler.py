@@ -1,9 +1,11 @@
 """커뮤니티/뉴스 크롤러.
 
 소스:
-  - 썰: 네이트판 베스트, 루리웹 베스트
-  - 뉴스: 네이버 뉴스 랭킹
-  - 금융: 네이버 뉴스 경제 랭킹
+  - 썰(story):   네이트판 베스트, 루리웹 베스트, 펨코 베스트
+  - 사회(society): 네이버 뉴스 사회 랭킹
+  - 경제(economy): 네이버 뉴스 경제 랭킹
+  - 스포츠(sports): 네이버 뉴스 스포츠 랭킹
+  - 연애(love):   네이버 뉴스 연예 랭킹
 """
 from __future__ import annotations
 
@@ -190,19 +192,21 @@ class FmkoreaCrawler:
 
 
 # ---------------------------------------------------------------------------
-# 네이버 뉴스 랭킹 (뉴스 + 금융)
+# 네이버 뉴스 랭킹 (사회 / 경제 / 스포츠 / 연예)
 # ---------------------------------------------------------------------------
 
 class NaverNewsRankingCrawler:
-    # sid: 100=정치, 101=경제, 102=사회, 103=생활/문화, 104=세계, 105=IT
-    _URLS = {
-        "news": "https://news.naver.com/main/ranking/popularDay.naver",
-        "finance": "https://news.naver.com/main/ranking/popularDay.naver?sid1=101",
-    }
+    # sid1: 101=경제, 102=사회, 106=연예, 107=스포츠
+    _URLS: list[tuple[str, str]] = [
+        ("society", "https://news.naver.com/main/ranking/popularDay.naver?sid1=102"),
+        ("economy", "https://news.naver.com/main/ranking/popularDay.naver?sid1=101"),
+        ("sports",  "https://news.naver.com/main/ranking/popularDay.naver?sid1=107"),
+        ("love",    "https://news.naver.com/main/ranking/popularDay.naver?sid1=106"),
+    ]
 
     async def fetch(self, client: httpx.AsyncClient) -> list[CrawledPost]:
         posts: list[CrawledPost] = []
-        for category, url in self._URLS.items():
+        for category, url in self._URLS:
             try:
                 resp = await client.get(url, headers=_HEADERS, timeout=_TIMEOUT)
                 resp.raise_for_status()
@@ -266,19 +270,29 @@ async def crawl_all() -> list[CrawledPost]:
 # Helpers
 # ---------------------------------------------------------------------------
 
-_FINANCE_KEYWORDS = re.compile(
-    r"주식|코스피|나스닥|비트코인|환율|금리|부동산|아파트|ETF|펀드|채권|달러|경제|물가|증시", re.IGNORECASE
+_ECONOMY_KEYWORDS = re.compile(
+    r"주식|코스피|나스닥|비트코인|환율|금리|부동산|아파트|ETF|펀드|채권|달러|경제|물가|증시|코인|투자|적금|통장", re.IGNORECASE
 )
-_NEWS_KEYWORDS = re.compile(
-    r"정치|대통령|국회|선거|뉴스|사건|사고|범죄|경찰|법원|외교|전쟁|군사|정부|판결", re.IGNORECASE
+_SOCIETY_KEYWORDS = re.compile(
+    r"정치|대통령|국회|선거|사건|사고|범죄|경찰|법원|외교|전쟁|군사|정부|판결|시위|파업", re.IGNORECASE
+)
+_SPORTS_KEYWORDS = re.compile(
+    r"손흥민|이강인|류현진|박지성|야구|축구|농구|배구|골프|올림픽|월드컵|KBO|EPL|NBA|스포츠|득점|우승", re.IGNORECASE
+)
+_LOVE_KEYWORDS = re.compile(
+    r"연예인|아이돌|배우|가수|드라마|영화|열애|결별|결혼|이혼|연애|폭로|스캔들|엔터|팬", re.IGNORECASE
 )
 
 
 def _guess_category_from_title(title: str) -> Category:
-    if _FINANCE_KEYWORDS.search(title):
-        return "finance"
-    if _NEWS_KEYWORDS.search(title):
-        return "news"
+    if _ECONOMY_KEYWORDS.search(title):
+        return "economy"
+    if _SPORTS_KEYWORDS.search(title):
+        return "sports"
+    if _LOVE_KEYWORDS.search(title):
+        return "love"
+    if _SOCIETY_KEYWORDS.search(title):
+        return "society"
     return "story"
 
 

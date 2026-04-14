@@ -5,7 +5,8 @@ from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
 
-Category = Literal["news", "story", "finance"]
+# DB 마이그레이션(003_update_categories.sql) 실행 전까지 구값도 허용
+Category = Literal["story", "society", "economy", "sports", "love", "news", "finance"]
 
 _camel_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 

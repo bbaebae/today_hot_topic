@@ -10,12 +10,12 @@ from ..schemas.topic import TopicDetail, TopicListItem, TopicsResponse
 
 router = APIRouter()
 
-Category = Literal["news", "story", "finance"]
+Category = Literal["story", "society", "economy", "sports", "love"]
 
 
 @router.get("", response_model=TopicsResponse)
 async def list_topics(
-    category: Category | None = Query(None, description="뉴스/썰/금융 필터"),
+    category: Category | None = Query(None, description="썰/사회/경제/스포츠/연애 필터"),
 ):
     client = db()
     query = client.table("topics").select(
@@ -46,9 +46,13 @@ async def get_topic(topic_id: str):
         raise HTTPException(status_code=404, detail="Topic not found")
 
     row = topic_res.data
-    # summary is stored as a JSON array string in Supabase
+    # summary_json은 JSON 배열 문자열 또는 일반 문자열일 수 있음
     raw_summary = row.get("summary_json") or "[]"
-    summary: list[str] = json.loads(raw_summary) if isinstance(raw_summary, str) else raw_summary
+    try:
+        parsed = json.loads(raw_summary) if isinstance(raw_summary, str) else raw_summary
+        summary: list[str] = parsed if isinstance(parsed, list) else [str(parsed)]
+    except (json.JSONDecodeError, TypeError):
+        summary = [raw_summary] if raw_summary else []
 
     poll_res = (
         client.table("polls")

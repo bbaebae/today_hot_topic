@@ -89,13 +89,16 @@ async def _search_naver_news(
     # 외부 ID: URL에서 추출하거나 title 해시 사용
     ext_id = re.sub(r"[^\w]", "", link)[-40:] or re.sub(r"[^\w]", "", title)[:40]
 
+    from .crawler import _guess_category_from_title
+    category = _guess_category_from_title(title)
+
     return CrawledPost(
         source="naver_api",
         external_id=ext_id,
         title=title,
         body=description,
         url=link,
-        category="news",
+        category=category,
         view_count=0,
     )
 

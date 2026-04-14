@@ -57,7 +57,7 @@ async def recompute_ranks(category: Category | None = None) -> None:
     # 카테고리별로 그룹화하여 순위 계산
     from itertools import groupby
 
-    all_categories: list[Category] = ["news", "story", "finance"]
+    all_categories: list[Category] = ["story", "society", "economy", "sports", "love"]
     for cat in all_categories:
         cat_topics = [t for t in topics if t["category"] == cat]
         cat_topics.sort(key=_score, reverse=True)

@@ -24,9 +24,11 @@ from ..schemas.topic import Category
 
 
 _DEFAULT_POLL_OPTIONS: dict[Category, tuple[str, str]] = {
-    "news": ("사실이다", "과장된 것 같다"),
-    "story": ("공감해요", "공감 안 해요"),
-    "finance": ("오를 것 같다", "내릴 것 같다"),
+    "story":   ("공감해요", "공감 안 해요"),
+    "society": ("사실이다", "과장된 것 같다"),
+    "economy": ("오를 것 같다", "내릴 것 같다"),
+    "sports":  ("잘할 것 같다", "못할 것 같다"),
+    "love":    ("이해해요", "이해 못하겠어요"),
 }
 
 

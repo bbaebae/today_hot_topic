@@ -1,4 +1,12 @@
-export type Category = 'news' | 'story' | 'finance';
+export type MainTab = 'story' | 'news';
+export type NewsSubCategory = 'society' | 'economy' | 'sports' | 'love';
+export type Category = 'story' | 'society' | 'economy' | 'sports' | 'love';
+
+export interface TrendingKeyword {
+  rank: number;
+  keyword: string;
+  change: 'up' | 'down' | 'new' | 'same';
+}
 
 export interface Topic {
   id: string;

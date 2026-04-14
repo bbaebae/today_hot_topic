@@ -8,9 +8,10 @@
 .header {
   flex-shrink: 0;
   background: #ffffff;
+  border-bottom: 1px solid var(--color-gray-100);
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 200;
 }
 
 .headerInner {
@@ -18,7 +19,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 20px;
-  height: 56px;
+  height: 52px;
 }
 
 .logo {
@@ -43,16 +44,25 @@
   background-color: var(--color-gray-100);
 }
 
-.listArea {
+/* 스크롤 전체 영역 */
+.scrollArea {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  background: #ffffff;
+  background: var(--color-gray-50);
 }
 
-.listArea::-webkit-scrollbar {
+.scrollArea::-webkit-scrollbar {
   display: none;
+}
+
+/* 메인탭 + 서브탭을 sticky로 묶음 */
+.stickyTabs {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: #ffffff;
 }
 
 .topicList {
@@ -66,6 +76,7 @@
   justify-content: center;
   padding: 80px 20px;
   gap: 16px;
+  background: #ffffff;
 }
 
 .empty p {

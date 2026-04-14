@@ -1,22 +1,31 @@
 import { useNavigate } from 'react-router-dom';
 import { useTopics } from '../hooks/useTopics';
 import { CategoryTab } from '../components/home/CategoryTab';
+import { NewsSubTab } from '../components/home/NewsSubTab';
+import { TrendingSection } from '../components/home/TrendingSection';
 import { TopicItem } from '../components/home/TopicItem';
 import { TopicSkeleton } from '../components/home/TopicSkeleton';
-import type { Category } from '../types/topic';
+import type { MainTab, NewsSubCategory } from '../types/topic';
 import styles from './HomePage.module.css';
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { topics, isLoading, category, setCategory, refresh } = useTopics('story');
+  const {
+    topics,
+    isLoading,
+    mainTab,
+    setMainTab,
+    newsSubCategory,
+    setNewsSubCategory,
+    refresh,
+  } = useTopics('story');
 
-  const handleCategoryChange = (cat: Category) => {
-    setCategory(cat);
+  const handleMainTabChange = (tab: MainTab) => {
+    setMainTab(tab);
   };
 
-  // Pull-to-refresh 간이 구현 (버튼으로 대체)
-  const handleRefresh = () => {
-    refresh();
+  const handleNewsSubChange = (sub: NewsSubCategory) => {
+    setNewsSubCategory(sub);
   };
 
   return (
@@ -25,7 +34,7 @@ export default function HomePage() {
       <header className={styles.header}>
         <div className={styles.headerInner}>
           <h1 className={styles.logo}>오늘 왜 떠?</h1>
-          <button className={styles.refreshBtn} onClick={handleRefresh} aria-label="새로고침">
+          <button className={styles.refreshBtn} onClick={refresh} aria-label="새로고침">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <path
                 d="M1 4v6h6M23 20v-6h-6"
@@ -44,17 +53,30 @@ export default function HomePage() {
             </svg>
           </button>
         </div>
-        <CategoryTab selected={category} onChange={handleCategoryChange} />
       </header>
 
-      {/* 리스트 */}
-      <div className={styles.listArea}>
+      {/* 스크롤 영역 */}
+      <div className={styles.scrollArea}>
+        {/* 실시간 검색어 */}
+        <TrendingSection />
+
+        {/* 메인 탭 (썰 / 뉴스) — sticky */}
+        <div className={styles.stickyTabs}>
+          <CategoryTab selected={mainTab} onChange={handleMainTabChange} />
+
+          {/* 뉴스 서브탭 */}
+          {mainTab === 'news' && (
+            <NewsSubTab selected={newsSubCategory} onChange={handleNewsSubChange} />
+          )}
+        </div>
+
+        {/* 토픽 리스트 */}
         {isLoading ? (
           <TopicSkeleton count={8} />
         ) : topics.length === 0 ? (
           <div className={styles.empty}>
             <p>지금은 핫토픽이 없어요 🤔</p>
-            <button onClick={handleRefresh}>다시 불러오기</button>
+            <button onClick={refresh}>다시 불러오기</button>
           </div>
         ) : (
           <ul className={styles.topicList}>

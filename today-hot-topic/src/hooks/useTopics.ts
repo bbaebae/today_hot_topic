@@ -1,22 +1,37 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Topic, Category } from '../types/topic';
+import type { Topic, Category, MainTab, NewsSubCategory } from '../types/topic';
 import { fetchTopics } from '../services/topicService';
 
-const CATEGORY_KEY = 'home_category';
+const MAIN_TAB_KEY = 'home_main_tab';
+const NEWS_SUB_KEY = 'home_news_sub';
 
-function getSavedCategory(fallback: Category): Category {
-  return (sessionStorage.getItem(CATEGORY_KEY) as Category) ?? fallback;
+function getSavedMainTab(fallback: MainTab): MainTab {
+  return (sessionStorage.getItem(MAIN_TAB_KEY) as MainTab) ?? fallback;
 }
 
-export function useTopics(initialCategory: Category = 'story') {
+function getSavedNewsSubCategory(fallback: NewsSubCategory): NewsSubCategory {
+  return (sessionStorage.getItem(NEWS_SUB_KEY) as NewsSubCategory) ?? fallback;
+}
+
+export function useTopics(initialMainTab: MainTab = 'story') {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [category, setRawCategory] = useState<Category>(() => getSavedCategory(initialCategory));
+  const [mainTab, setRawMainTab] = useState<MainTab>(() => getSavedMainTab(initialMainTab));
+  const [newsSubCategory, setRawNewsSubCategory] = useState<NewsSubCategory>(() =>
+    getSavedNewsSubCategory('society')
+  );
 
-  const setCategory = useCallback((cat: Category) => {
-    sessionStorage.setItem(CATEGORY_KEY, cat);
-    setRawCategory(cat);
+  const effectiveCategory: Category = mainTab === 'story' ? 'story' : newsSubCategory;
+
+  const setMainTab = useCallback((tab: MainTab) => {
+    sessionStorage.setItem(MAIN_TAB_KEY, tab);
+    setRawMainTab(tab);
+  }, []);
+
+  const setNewsSubCategory = useCallback((sub: NewsSubCategory) => {
+    sessionStorage.setItem(NEWS_SUB_KEY, sub);
+    setRawNewsSubCategory(sub);
   }, []);
 
   const load = useCallback(async (cat: Category) => {
@@ -33,12 +48,22 @@ export function useTopics(initialCategory: Category = 'story') {
   }, []);
 
   useEffect(() => {
-    void load(category);
-  }, [category, load]);
+    void load(effectiveCategory);
+  }, [effectiveCategory, load]);
 
   const refresh = useCallback(() => {
-    void load(category);
-  }, [category, load]);
+    void load(effectiveCategory);
+  }, [effectiveCategory, load]);
 
-  return { topics, isLoading, error, category, setCategory, refresh };
+  return {
+    topics,
+    isLoading,
+    error,
+    mainTab,
+    setMainTab,
+    newsSubCategory,
+    setNewsSubCategory,
+    effectiveCategory,
+    refresh,
+  };
 }

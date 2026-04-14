@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { safeHaptic } from '../utils/toss';
 import type { RewardType } from '../types/user';
-import { claimReward } from '../services/rewardService';
+import { claimReward, isMockDailyLimitReached } from '../services/rewardService';
 
 export function useReward() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [amount, setAmount] = useState(10);
   const [balance, setBalance] = useState(1230);
-  const [isDailyLimitReached, setIsDailyLimitReached] = useState(false);
+  const [isDailyLimitReached, setIsDailyLimitReached] = useState(() => isMockDailyLimitReached());
 
   const claim = async (rewardType: RewardType, referenceId: string) => {
     try {

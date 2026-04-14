@@ -6,23 +6,37 @@ const DAILY_MAX_COUNT = 3;
 const REWARD_COUNT_KEY = 'reward_count';
 const REWARD_DATE_KEY = 'reward_date';
 const REWARD_BALANCE_KEY = 'reward_balance';
+const REWARD_TODAY_EARNED_KEY = 'reward_today_earned';
 
 function getTodayStr() {
   return new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
 }
 
-function getMockRewardCount(): number {
+function resetDailyIfNeeded() {
   const savedDate = localStorage.getItem(REWARD_DATE_KEY);
   if (savedDate !== getTodayStr()) {
     localStorage.setItem(REWARD_DATE_KEY, getTodayStr());
     localStorage.setItem(REWARD_COUNT_KEY, '0');
-    return 0;
+    localStorage.setItem(REWARD_TODAY_EARNED_KEY, '0');
   }
+}
+
+function getMockRewardCount(): number {
+  resetDailyIfNeeded();
   return parseInt(localStorage.getItem(REWARD_COUNT_KEY) ?? '0', 10);
 }
 
 function getMockBalance(): number {
   return parseInt(localStorage.getItem(REWARD_BALANCE_KEY) ?? '1230', 10);
+}
+
+function getMockTodayEarned(): number {
+  resetDailyIfNeeded();
+  return parseInt(localStorage.getItem(REWARD_TODAY_EARNED_KEY) ?? '0', 10);
+}
+
+export function isMockDailyLimitReached(): boolean {
+  return getMockRewardCount() >= DAILY_MAX_COUNT;
 }
 
 export async function claimReward(
@@ -44,8 +58,10 @@ export async function claimReward(
     const newCount = count + 1;
     const newBalance = getMockBalance() + amount;
 
+    const newTodayEarned = getMockTodayEarned() + amount;
     localStorage.setItem(REWARD_COUNT_KEY, String(newCount));
     localStorage.setItem(REWARD_BALANCE_KEY, String(newBalance));
+    localStorage.setItem(REWARD_TODAY_EARNED_KEY, String(newTodayEarned));
 
     return {
       transactionId: `tx-${Date.now()}`,
@@ -65,7 +81,14 @@ export async function fetchUserProfile() {
   if (USE_MOCK) {
     await delay(300);
     const { mockUser, mockTransactions } = await import('../mocks/user');
-    return { user: mockUser, transactions: mockTransactions };
+    return {
+      user: {
+        ...mockUser,
+        totalPoints: getMockBalance(),
+        todayEarned: getMockTodayEarned(),
+      },
+      transactions: mockTransactions,
+    };
   }
 
   const { get } = await import('./api');

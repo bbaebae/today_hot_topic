@@ -2,11 +2,22 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Topic, Category } from '../types/topic';
 import { fetchTopics } from '../services/topicService';
 
+const CATEGORY_KEY = 'home_category';
+
+function getSavedCategory(fallback: Category): Category {
+  return (sessionStorage.getItem(CATEGORY_KEY) as Category) ?? fallback;
+}
+
 export function useTopics(initialCategory: Category = 'story') {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [category, setCategory] = useState<Category>(initialCategory);
+  const [category, setRawCategory] = useState<Category>(() => getSavedCategory(initialCategory));
+
+  const setCategory = useCallback((cat: Category) => {
+    sessionStorage.setItem(CATEGORY_KEY, cat);
+    setRawCategory(cat);
+  }, []);
 
   const load = useCallback(async (cat: Category) => {
     setIsLoading(true);

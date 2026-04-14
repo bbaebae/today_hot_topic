@@ -9,7 +9,12 @@ type HapticType = Parameters<typeof generateHapticFeedback>[0];
 
 export function safeHaptic(options: HapticType): void {
   try {
-    generateHapticFeedback(options);
+    // generateHapticFeedback은 Promise를 반환하며 브라우저 환경에서 async로 reject합니다.
+    // 동기 catch 외에 Promise rejection도 반드시 삼켜야 합니다.
+    const result = generateHapticFeedback(options) as unknown;
+    if (result instanceof Promise) {
+      result.catch(() => {});
+    }
   } catch {
     // Toss 앱 환경 밖에서는 무시
   }

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import os
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
 
 router = APIRouter()
 
@@ -26,19 +26,30 @@ def _verify(x_admin_key: str | None) -> None:
 
 
 @router.post("/ingest")
-async def trigger_ingest(x_admin_key: str | None = Header(None)):
-    """크롤링 + GPT 요약 + Supabase 저장 파이프라인을 실행합니다.
-    Vercel Cron에 의해 30분마다 호출됩니다."""
+async def trigger_ingest(
+    background_tasks: BackgroundTasks,
+    x_admin_key: str | None = Header(None),
+):
+    """크롤링 + GPT 요약 + Supabase 저장 파이프라인을 백그라운드로 실행합니다."""
     _verify(x_admin_key)
-    from ..services.ingestion import run_ingestion
-    result = await run_ingestion()
-    return {"ok": True, **result}
+
+    async def _run():
+        from ..services.ingestion import run_ingestion
+        import logging
+        logger = logging.getLogger(__name__)
+        try:
+            result = await run_ingestion()
+            logger.info("Manual ingest complete: %s", result)
+        except Exception:
+            logger.exception("Manual ingest failed")
+
+    background_tasks.add_task(_run)
+    return {"ok": True, "message": "ingestion started in background"}
 
 
 @router.post("/rank")
 async def trigger_rank(x_admin_key: str | None = Header(None)):
-    """토픽 랭킹을 재계산합니다.
-    Vercel Cron에 의해 10분마다 호출됩니다."""
+    """토픽 랭킹을 재계산합니다."""
     _verify(x_admin_key)
     from ..services.ranking import recompute_ranks
     await recompute_ranks()

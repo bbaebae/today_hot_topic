@@ -262,7 +262,8 @@ class NaverNewsRankingCrawler:
 # ---------------------------------------------------------------------------
 
 async def crawl_all() -> list[CrawledPost]:
-    crawlers = [PannCrawler(), RuliwebCrawler(), FmkoreaCrawler(), NaverNewsRankingCrawler()]
+    # FmkoreaCrawler는 Playwright 의존으로 메모리 과다 사용 → 제외
+    crawlers = [PannCrawler(), RuliwebCrawler(), NaverNewsRankingCrawler()]
     async with httpx.AsyncClient(follow_redirects=True) as client:
         results = await asyncio.gather(
             *[c.fetch(client) for c in crawlers],

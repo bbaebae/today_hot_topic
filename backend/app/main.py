@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
-from .routers import auth, topics, polls, rewards, users
+from .routers import auth, topics, polls, rewards, users, admin
 from .scheduler import start_scheduler, stop_scheduler
 
 
@@ -31,11 +31,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
-app.include_router(topics.router, prefix="/api/v1/topics", tags=["topics"])
-app.include_router(polls.router, prefix="/api/v1/polls", tags=["polls"])
+app.include_router(auth.router,    prefix="/api/v1/auth",    tags=["auth"])
+app.include_router(topics.router,  prefix="/api/v1/topics",  tags=["topics"])
+app.include_router(polls.router,   prefix="/api/v1/polls",   tags=["polls"])
 app.include_router(rewards.router, prefix="/api/v1/rewards", tags=["rewards"])
-app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
+app.include_router(users.router,   prefix="/api/v1/users",   tags=["users"])
+app.include_router(admin.router,   prefix="/api/v1/admin",   tags=["admin"])
 
 
 @app.get("/health")

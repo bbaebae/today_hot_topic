@@ -1,0 +1,35 @@
+[phases.setup]
+nixPkgs = [
+  "python311",
+  "chromium",
+  "nss",
+  "nspr",
+  "atk",
+  "at-spi2-atk",
+  "xorg.libX11",
+  "xorg.libXcomposite",
+  "xorg.libXdamage",
+  "xorg.libXext",
+  "xorg.libXfixes",
+  "xorg.libXrandr",
+  "xorg.libxcb",
+  "libxkbcommon",
+  "mesa",
+  "expat",
+  "libdrm",
+  "alsa-lib",
+  "pango",
+  "cairo",
+  "glib",
+  "cups",
+  "dbus",
+]
+
+[phases.install]
+cmds = [
+  "pip install -r requirements.txt",
+  "playwright install chromium",
+]
+
+[start]
+cmd = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"

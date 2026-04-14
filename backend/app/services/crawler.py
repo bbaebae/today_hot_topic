@@ -10,14 +10,22 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import re
 from dataclasses import dataclass, field
 
 import httpx
 from bs4 import BeautifulSoup
-from playwright.async_api import async_playwright
 
 from ..schemas.topic import Category
+
+# Vercel 서버리스 환경에서는 Playwright(Chromium) 사용 불가 (바이너리 용량 초과)
+_PLAYWRIGHT_AVAILABLE = os.getenv("VERCEL") != "1"
+try:
+    if _PLAYWRIGHT_AVAILABLE:
+        from playwright.async_api import async_playwright
+except ImportError:
+    _PLAYWRIGHT_AVAILABLE = False
 
 _HEADERS = {
     "User-Agent": (
@@ -145,8 +153,10 @@ class FmkoreaCrawler:
     _URL = "https://www.fmkorea.com/best"
 
     async def fetch(self, client: httpx.AsyncClient) -> list[CrawledPost]:
+        if not _PLAYWRIGHT_AVAILABLE:
+            return []  # Vercel 환경에서는 스킵
         try:
-            async with async_playwright() as p:
+            async with async_playwright() as p:  # type: ignore[name-defined]
                 browser = await p.chromium.launch(headless=True)
                 page = await browser.new_page()
                 await page.goto(self._URL, timeout=20000)

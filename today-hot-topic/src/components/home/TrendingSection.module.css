@@ -90,3 +90,39 @@
   color: var(--color-gray-400);
   line-height: 1;
 }
+
+/* 스켈레톤 */
+.skeletonRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.skeletonRank {
+  flex-shrink: 0;
+  width: 16px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--color-gray-100);
+  animation: shimmer 1.2s infinite ease-in-out;
+}
+
+.skeletonKeyword {
+  height: 12px;
+  width: 70%;
+  border-radius: 3px;
+  background: var(--color-gray-100);
+  animation: shimmer 1.2s infinite ease-in-out;
+}
+
+@keyframes shimmer {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.empty {
+  font-size: 12px;
+  color: var(--color-gray-400);
+  padding: 4px 0;
+  list-style: none;
+}

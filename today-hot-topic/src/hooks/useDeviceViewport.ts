@@ -3,7 +3,12 @@ import { getPlatformOS } from '@apps-in-toss/web-framework';
 
 export function useDeviceViewport() {
   useEffect(() => {
-    const isIOS = getPlatformOS() === 'ios';
+    let isIOS = false;
+    try {
+      isIOS = getPlatformOS() === 'ios';
+    } catch {
+      // Toss 앱 환경 밖(일반 브라우저)에서는 네이티브 브리지 없음 → 무시
+    }
 
     document.documentElement.style.setProperty(
       '--min-height',

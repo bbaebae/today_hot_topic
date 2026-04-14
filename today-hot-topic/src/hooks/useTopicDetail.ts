@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Storage } from '@apps-in-toss/web-framework';
+import { safeStorage } from '../utils/toss';
 import type { TopicDetail } from '../types/topic';
 import { fetchTopicDetail } from '../services/topicService';
 
@@ -11,7 +11,7 @@ export function useTopicDetail(topicId: string) {
 
   // 투표 상태 Storage에서 복원
   useEffect(() => {
-    Storage.getItem(`voted_${topicId}`)
+    safeStorage.getItem(`voted_${topicId}`)
       .then((v) => {
         if (v === 'A' || v === 'B') setVotedOption(v);
       })
@@ -42,7 +42,7 @@ export function useTopicDetail(topicId: string) {
 
   const markVoted = (option: 'A' | 'B') => {
     setVotedOption(option);
-    void Storage.setItem(`voted_${topicId}`, option);
+    void safeStorage.setItem(`voted_${topicId}`, option);
     // 투표 결과 로컬 업데이트
     if (topic) {
       setTopic((prev) => {

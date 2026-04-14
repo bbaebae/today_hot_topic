@@ -1,5 +1,5 @@
 import type { Topic } from '../../types/topic';
-import { generateHapticFeedback } from '@apps-in-toss/web-framework';
+import { safeHaptic } from '../../utils/toss';
 import styles from './TopicItem.module.css';
 import clsx from 'clsx';
 
@@ -27,7 +27,7 @@ export function TopicItem({ topic, onClick }: TopicItemProps) {
   const isHot = topic.rank <= 3;
 
   const handleClick = () => {
-    generateHapticFeedback({ type: 'softMedium' });
+    safeHaptic({ type: 'softMedium' });
     onClick();
   };
 

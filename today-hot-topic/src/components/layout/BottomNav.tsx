@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { generateHapticFeedback } from '@apps-in-toss/web-framework';
+import { safeHaptic } from '../../utils/toss';
 import styles from './BottomNav.module.css';
 import clsx from 'clsx';
 
@@ -56,7 +56,7 @@ export function BottomNav() {
 
   const handleNav = (path: string) => {
     if (pathname === path) return;
-    generateHapticFeedback({ type: 'softMedium' });
+    safeHaptic({ type: 'softMedium' });
     navigate(path);
   };
 

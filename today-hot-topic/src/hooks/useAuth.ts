@@ -7,7 +7,8 @@
  *  3. Storage에 JWT 저장 → 이후 API 요청에 자동 첨부
  */
 import { useState, useEffect } from 'react';
-import { appLogin, Storage } from '@apps-in-toss/web-framework';
+import { appLogin } from '@apps-in-toss/web-framework';
+import { safeStorage } from '../utils/toss';
 
 const TOKEN_KEY = 'server_jwt';
 const IS_MOCK = import.meta.env.PUBLIC_USE_MOCK === 'true';
@@ -20,7 +21,7 @@ export function useAuth() {
   useEffect(() => {
     if (IS_MOCK) return;
 
-    Storage.getItem(TOKEN_KEY)
+    safeStorage.getItem(TOKEN_KEY)
       .then((saved) => {
         if (saved) {
           setToken(saved);
@@ -50,7 +51,7 @@ export function useAuth() {
       const { access_token } = await resp.json();
 
       // Step 3: Storage 저장
-      await Storage.setItem(TOKEN_KEY, access_token);
+      await safeStorage.setItem(TOKEN_KEY, access_token);
       setToken(access_token);
     } catch (e) {
       setError(e instanceof Error ? e.message : '로그인 실패');
@@ -60,7 +61,7 @@ export function useAuth() {
   }
 
   async function logout() {
-    await Storage.removeItem(TOKEN_KEY);
+    await safeStorage.removeItem(TOKEN_KEY);
     setToken(null);
     await login();
   }

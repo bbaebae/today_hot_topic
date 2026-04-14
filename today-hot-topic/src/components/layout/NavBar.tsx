@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { generateHapticFeedback } from '@apps-in-toss/web-framework';
+import { safeHaptic } from '../../utils/toss';
 import styles from './NavBar.module.css';
 
 interface NavBarProps {
@@ -20,7 +20,7 @@ export function NavBar({
   const navigate = useNavigate();
 
   const handleBack = () => {
-    generateHapticFeedback({ type: 'softMedium' });
+    safeHaptic({ type: 'softMedium' });
     if (onBack) {
       onBack();
     } else {
@@ -29,7 +29,7 @@ export function NavBar({
   };
 
   const handleShare = () => {
-    generateHapticFeedback({ type: 'softMedium' });
+    safeHaptic({ type: 'softMedium' });
     if (onShare) onShare();
   };
 

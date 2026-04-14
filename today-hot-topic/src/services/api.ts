@@ -1,4 +1,4 @@
-import { Storage } from '@apps-in-toss/web-framework';
+import { safeStorage } from '../utils/toss';
 
 const USE_MOCK = import.meta.env.PUBLIC_USE_MOCK === 'true';
 const BASE_URL = '/api/v1';
@@ -9,7 +9,7 @@ function delay(ms: number): Promise<void> {
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   if (USE_MOCK) return {};
-  const token = await Storage.getItem('server_jwt').catch(() => null);
+  const token = await safeStorage.getItem('server_jwt').catch(() => null);
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 

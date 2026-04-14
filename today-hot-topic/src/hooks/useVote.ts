@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { generateHapticFeedback } from '@apps-in-toss/web-framework';
+import { safeHaptic } from '../utils/toss';
 import type { VoteResponse } from '../types/api';
 import { submitVote } from '../services/voteService';
 
@@ -15,7 +15,7 @@ export function useVote() {
     try {
       const res = await submitVote(pollId, option);
       setResult(res);
-      generateHapticFeedback({ type: 'softMedium' });
+      safeHaptic({ type: 'softMedium' });
       return res;
     } finally {
       setIsSubmitting(false);

@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { generateHapticFeedback } from '@apps-in-toss/web-framework';
+import { safeHaptic } from '../../utils/toss';
 import type { Poll } from '../../types/topic';
 import { VoteResultBar } from './VoteResultBar';
 import styles from './PollSection.module.css';
@@ -21,7 +21,7 @@ export function PollSection({
 }: PollSectionProps) {
   const handleVote = (option: 'A' | 'B') => {
     if (hasVoted || isSubmitting) return;
-    generateHapticFeedback({ type: 'softMedium' });
+    safeHaptic({ type: 'softMedium' });
     onVote(option);
   };
 

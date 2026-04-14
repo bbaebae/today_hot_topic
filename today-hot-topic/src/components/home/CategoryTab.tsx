@@ -1,7 +1,7 @@
 import type { Category } from '../../types/topic';
 import styles from './CategoryTab.module.css';
 import clsx from 'clsx';
-import { generateHapticFeedback } from '@apps-in-toss/web-framework';
+import { safeHaptic } from '../../utils/toss';
 
 const CATEGORIES: { key: Category; label: string }[] = [
   { key: 'story', label: '썰' },
@@ -17,7 +17,7 @@ interface CategoryTabProps {
 export function CategoryTab({ selected, onChange }: CategoryTabProps) {
   const handleChange = (cat: Category) => {
     if (cat === selected) return;
-    generateHapticFeedback({ type: 'softMedium' });
+    safeHaptic({ type: 'softMedium' });
     onChange(cat);
   };
 

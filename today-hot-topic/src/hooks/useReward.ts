@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { generateHapticFeedback } from '@apps-in-toss/web-framework';
+import { safeHaptic } from '../utils/toss';
 import type { RewardType } from '../types/user';
 import { claimReward } from '../services/rewardService';
 
@@ -15,7 +15,7 @@ export function useReward() {
       setAmount(res.amount);
       setBalance(res.currentBalance);
       setIsModalOpen(true);
-      generateHapticFeedback({ type: 'success' });
+      safeHaptic({ type: 'success' });
     } catch (e) {
       const err = e as { status?: number };
       if (err.status === 429) {

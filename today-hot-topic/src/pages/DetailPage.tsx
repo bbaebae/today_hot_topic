@@ -107,7 +107,7 @@ export default function DetailPage() {
             {/* 일일 한도 메시지 */}
             {isDailyLimitReached && (
               <div className={styles.limitBanner}>
-                🎯 오늘의 포인트 지급 한도에 도달했어요
+                🎯 오늘의 포인트는 다 받았어요 (하루 3회 한도)
               </div>
             )}
 

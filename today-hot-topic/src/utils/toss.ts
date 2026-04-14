@@ -20,21 +20,21 @@ export const safeStorage = {
     try {
       return await Storage.getItem(key);
     } catch {
-      return null;
+      return localStorage.getItem(key);
     }
   },
   setItem: async (key: string, value: string): Promise<void> => {
     try {
       await Storage.setItem(key, value);
     } catch {
-      // 무시
+      localStorage.setItem(key, value);
     }
   },
   removeItem: async (key: string): Promise<void> => {
     try {
       await Storage.removeItem(key);
     } catch {
-      // 무시
+      localStorage.removeItem(key);
     }
   },
 };

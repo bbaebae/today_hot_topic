@@ -68,14 +68,15 @@ function AppInner() {
 }
 
 const IS_MOCK = import.meta.env.PUBLIC_USE_MOCK === 'true';
+// ReactNativeWebView가 있으면 토스 앱 WebView 환경
+const IS_TOSS_APP = typeof window !== 'undefined' && 'ReactNativeWebView' in window;
 
 function PassThrough({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-// mock 모드에서는 @toss/tds-mobile-ait를 번들에서 완전히 제외
-// (해당 패키지는 Toss 앱 환경에서만 동작하며, 일반 브라우저에서 모듈 초기화 시 throw)
-const TDSProvider = IS_MOCK
+// 토스 앱 WebView 환경에서만 TDSProvider 로드 (일반 브라우저에서 throw 방지)
+const TDSProvider = IS_MOCK || !IS_TOSS_APP
   ? PassThrough
   : lazy(() =>
       import('@toss/tds-mobile-ait').then((m) => ({ default: m.TDSMobileAITProvider }))

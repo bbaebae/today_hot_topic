@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useTopicDetail } from '../hooks/useTopicDetail';
@@ -7,6 +8,7 @@ import { NavBar } from '../components/layout/NavBar';
 import { SummaryCard } from '../components/detail/SummaryCard';
 import { PollSection } from '../components/detail/PollSection';
 import { RewardModal } from '../components/detail/RewardModal';
+import { AdConfirmModal } from '../components/detail/AdConfirmModal';
 import styles from './DetailPage.module.css';
 
 function DetailSkeleton() {
@@ -36,14 +38,30 @@ export default function DetailPage() {
   const { submit, isSubmitting } = useVote();
   const { isModalOpen, amount, balance, isDailyLimitReached, claim, closeModal } =
     useReward();
+  const [adConfirmOpen, setAdConfirmOpen] = useState(false);
+  const [pendingPollId, setPendingPollId] = useState<string | null>(null);
 
   const handleVote = async (option: 'A' | 'B') => {
     if (!topic) return;
     markVoted(option);
     const result = await submit(topic.poll.id, option);
     if (result.rewardEligible && !isDailyLimitReached) {
-      await claim('vote', topic.poll.id);
+      setPendingPollId(topic.poll.id);
+      setAdConfirmOpen(true);
     }
+  };
+
+  const handleAdConfirm = async () => {
+    setAdConfirmOpen(false);
+    if (pendingPollId) {
+      await claim('ad', pendingPollId);
+      setPendingPollId(null);
+    }
+  };
+
+  const handleAdCancel = () => {
+    setAdConfirmOpen(false);
+    setPendingPollId(null);
   };
 
   if (error) {
@@ -115,6 +133,13 @@ export default function DetailPage() {
           </motion.div>
         )}
       </div>
+
+      {/* 광고 확인 팝업 */}
+      <AdConfirmModal
+        isOpen={adConfirmOpen}
+        onConfirm={handleAdConfirm}
+        onCancel={handleAdCancel}
+      />
 
       {/* 보상 모달 */}
       <RewardModal

@@ -79,7 +79,6 @@ export default function DetailPage() {
   return (
     <div className={styles.page}>
       <NavBar
-        title={topic?.title ?? ''}
         showBack
         showShare
         onBack={() => navigate(-1)}

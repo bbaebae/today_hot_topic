@@ -18,17 +18,39 @@ async def list_topics(
     category: Category | None = Query(None, description="썰/사회/경제/스포츠/연애 필터"),
 ):
     client = db()
-    query = client.table("topics").select(
-        "id, title, category, image_url, view_count, rank, created_at"
-    )
-    if category:
-        query = query.eq("category", category).order("rank")
-    else:
-        query = query.order("view_count", desc=True)
 
-    res = query.limit(50).execute()
-    topics = [TopicListItem(**row) for row in (res.data or [])]
-    return TopicsResponse(topics=topics)
+    if category:
+        res = (
+            client.table("topics")
+            .select("id, title, category, image_url, view_count, rank, created_at")
+            .eq("category", category)
+            .order("rank")
+            .limit(50)
+            .execute()
+        )
+        topics = res.data or []
+
+        # 해당 카테고리 토픽이 없으면 전체 최신 토픽으로 폴백
+        if not topics:
+            res = (
+                client.table("topics")
+                .select("id, title, category, image_url, view_count, rank, created_at")
+                .order("created_at", desc=True)
+                .limit(30)
+                .execute()
+            )
+            topics = res.data or []
+    else:
+        res = (
+            client.table("topics")
+            .select("id, title, category, image_url, view_count, rank, created_at")
+            .order("view_count", desc=True)
+            .limit(50)
+            .execute()
+        )
+        topics = res.data or []
+
+    return TopicsResponse(topics=[TopicListItem(**row) for row in topics])
 
 
 @router.get("/{topic_id}", response_model=TopicDetail)

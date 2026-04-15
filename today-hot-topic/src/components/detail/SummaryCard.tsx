@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { safeOpenUrl } from '../../utils/toss';
 import styles from './SummaryCard.module.css';
 
 interface SummaryCardProps {
@@ -64,6 +65,15 @@ export function SummaryCard({
           </motion.li>
         ))}
       </ol>
+
+      {sourceUrl && (
+        <button
+          className={styles.sourceBtn}
+          onClick={() => safeOpenUrl(sourceUrl)}
+        >
+          원본 보기 →
+        </button>
+      )}
     </motion.div>
   );
 }

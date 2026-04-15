@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { fetchTrendingKeywords } from '../../services/trendingService';
+import { safeOpenUrl } from '../../utils/toss';
 import type { TrendingKeyword } from '../../types/topic';
 import styles from './TrendingSection.module.css';
 
@@ -18,8 +19,12 @@ function formatUpdateTime(iso: string): string {
 }
 
 function TrendingRow({ item }: { item: TrendingKeyword }) {
+  const handleClick = () => {
+    safeOpenUrl(`https://search.naver.com/search.naver?query=${encodeURIComponent(item.keyword)}`);
+  };
+
   return (
-    <li className={styles.row}>
+    <li className={styles.row} onClick={handleClick} role="button">
       <span className={styles.rank}>{item.rank}</span>
       <span className={styles.keyword}>{item.keyword}</span>
       <ChangeIndicator change={item.change} />

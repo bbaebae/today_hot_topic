@@ -1,11 +1,17 @@
 """Toss OAuth2 토큰 교환 라우터."""
 from __future__ import annotations
 
+import base64
+import os
+
 from pydantic import BaseModel
 from fastapi import APIRouter, HTTPException, Request
 
 from ..auth import exchange_authorization_code, get_or_create_user, issue_server_jwt
 from ..database import db
+
+_DISCONNECT_USER = os.getenv("DISCONNECT_BASIC_USER", "today-hot-topic")
+_DISCONNECT_PASS = os.getenv("DISCONNECT_BASIC_PASS", "")
 
 router = APIRouter()
 
@@ -40,9 +46,23 @@ async def get_token(body: TokenRequest):
     return TokenResponse(access_token=server_jwt)
 
 
+def _check_basic_auth(request: Request) -> bool:
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Basic "):
+        return False
+    try:
+        decoded = base64.b64decode(auth[6:]).decode()
+        user, pwd = decoded.split(":", 1)
+        return user == _DISCONNECT_USER and pwd == _DISCONNECT_PASS
+    except Exception:
+        return False
+
+
 @router.api_route("/disconnect", methods=["GET", "POST"])
 async def disconnect(request: Request):
     """토스 앱에서 연결 끊기 시 호출되는 콜백. 사용자 데이터를 삭제합니다."""
+    if _DISCONNECT_PASS and not _check_basic_auth(request):
+        raise HTTPException(status_code=401, detail="Unauthorized")
     try:
         if request.method == "POST":
             body = await request.json()

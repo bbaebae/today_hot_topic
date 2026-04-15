@@ -40,15 +40,19 @@ async def get_token(body: TokenRequest):
     return TokenResponse(access_token=server_jwt)
 
 
-@router.post("/disconnect")
+@router.api_route("/disconnect", methods=["GET", "POST"])
 async def disconnect(request: Request):
     """토스 앱에서 연결 끊기 시 호출되는 콜백. 사용자 데이터를 삭제합니다."""
     try:
-        body = await request.json()
-        toss_user_key = body.get("userKey") or body.get("user_key", "")
+        if request.method == "POST":
+            body = await request.json()
+            toss_user_key = body.get("userKey") or body.get("user_key", "")
+        else:
+            toss_user_key = request.query_params.get("userKey") or request.query_params.get("user_key", "")
+
         if toss_user_key:
             client = db()
             client.table("users").delete().eq("toss_user_id", toss_user_key).execute()
     except Exception:
-        pass  # 콜백 실패해도 토스에 200 반환 필요
+        pass
     return {"ok": True}

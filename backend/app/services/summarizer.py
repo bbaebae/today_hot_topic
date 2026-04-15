@@ -16,7 +16,8 @@ _SYSTEM_PROMPT = """\
 2. 각 문장은 40자 이내로 간결하게 작성합니다.
 3. 경어체(~해요, ~예요)를 사용합니다.
 4. 특수문자나 마크다운은 사용하지 않습니다.
-5. JSON 배열 형식으로만 답변합니다. 예: ["문장1", "문장2", "문장3"]
+5. 반드시 {"summary": ["문장1", "문장2", "문장3"]} 형식의 JSON으로만 답변합니다.
+본문이 없으면 제목만으로 추측해서 요약합니다.
 """
 
 
@@ -25,7 +26,8 @@ async def summarize(title: str, body: str) -> list[str]:
     게시물 제목과 본문을 받아 3줄 한국어 요약을 반환합니다.
     실패 시 빈 리스트 대신 제목 기반 fallback을 반환합니다.
     """
-    prompt = f"제목: {title}\n\n본문:\n{body[:3000]}"
+    content_part = f"\n\n본문:\n{body[:3000]}" if body.strip() else ""
+    prompt = f"제목: {title}{content_part}"
 
     try:
         resp = await _client.chat.completions.create(
@@ -38,16 +40,16 @@ async def summarize(title: str, body: str) -> list[str]:
             max_tokens=300,
             response_format={"type": "json_object"},
         )
-        content = resp.choices[0].message.content or "[]"
-        # GPT sometimes wraps the array in {"summary": [...]}
-        parsed = json.loads(content)
-        if isinstance(parsed, list):
-            return parsed[:3]
-        # unwrap common wrapper keys
+        raw = resp.choices[0].message.content or "{}"
+        parsed = json.loads(raw)
         for key in ("summary", "summaries", "lines", "result"):
             if key in parsed and isinstance(parsed[key], list):
-                return parsed[key][:3]
-        return list(parsed.values())[0][:3] if parsed else _fallback(title)
+                return [s for s in parsed[key][:3] if s]
+        # 첫 번째 list 값 사용
+        for v in parsed.values():
+            if isinstance(v, list) and v:
+                return [s for s in v[:3] if s]
+        return _fallback(title)
     except Exception:
         return _fallback(title)
 

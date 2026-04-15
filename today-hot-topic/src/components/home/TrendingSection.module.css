@@ -1,7 +1,7 @@
 .section {
   background: #ffffff;
   border-bottom: 6px solid var(--color-gray-100);
-  padding: 12px 16px 14px;
+  padding: 12px 20px 14px;
   flex-shrink: 0;
 }
 

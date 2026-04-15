@@ -3,7 +3,7 @@
  * Toss 앱 환경 밖(일반 브라우저)에서 호출 시 throw합니다.
  * 이 유틸리티는 각 함수를 안전하게 감싸서 브라우저에서도 무해하게 동작하도록 합니다.
  */
-import { generateHapticFeedback, Storage, openExternalUrl } from '@apps-in-toss/web-framework';
+import { generateHapticFeedback, Storage, openURL } from '@apps-in-toss/web-framework';
 
 type HapticType = Parameters<typeof generateHapticFeedback>[0];
 
@@ -22,7 +22,7 @@ export function safeHaptic(options: HapticType): void {
 
 export function safeOpenUrl(url: string): void {
   try {
-    const result = openExternalUrl({ url }) as unknown;
+    const result = openURL({ url }) as unknown;
     if (result instanceof Promise) {
       result.catch(() => window.open(url, '_blank'));
     }

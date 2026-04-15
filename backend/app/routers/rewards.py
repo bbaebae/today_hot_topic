@@ -64,7 +64,7 @@ async def claim_reward(
     # Call Toss mTLS points API
     try:
         await issue_points(
-            toss_user_id=user["toss_user_id"],
+            toss_user_key=user["toss_user_id"],
             amount=amount,
             transaction_id=tx_id,
         )

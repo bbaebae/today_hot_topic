@@ -24,6 +24,7 @@ curl_cffi==0.7.4
 
 # Scheduler
 apscheduler==3.10.4
+pytz==2024.1
 
 # Dev / test
 pytest==8.3.4

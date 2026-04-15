@@ -36,6 +36,35 @@ _HEADERS = {
     "Accept-Language": "ko-KR,ko;q=0.9",
 }
 _TIMEOUT = httpx.Timeout(15.0)
+_BODY_TIMEOUT = httpx.Timeout(10.0)
+
+
+async def _fetch_body(client: httpx.AsyncClient, url: str, source: str) -> str:
+    """소스별 상세 페이지에서 본문을 추출합니다."""
+    try:
+        resp = await client.get(url, headers=_HEADERS, timeout=_BODY_TIMEOUT)
+        resp.raise_for_status()
+    except Exception:
+        return ""
+
+    soup = BeautifulSoup(resp.text, "lxml")
+
+    selectors: list[str] = []
+    if source == "pann":
+        selectors = ["div.se-main-container", "div.post_cont", "div#contentArea"]
+    elif source == "ruliweb":
+        selectors = ["div.view_content", "div.board_content"]
+    elif source == "naver_news":
+        selectors = ["div#dic_area", "div.newsct_article", "article#dic_area"]
+
+    for sel in selectors:
+        el = soup.select_one(sel)
+        if el:
+            text = el.get_text(separator="\n", strip=True)
+            if len(text) > 50:
+                return text[:3000]
+
+    return ""
 
 
 @dataclass
@@ -270,10 +299,22 @@ async def crawl_all() -> list[CrawledPost]:
             return_exceptions=True,
         )
 
-    posts: list[CrawledPost] = []
-    for r in results:
-        if isinstance(r, list):
-            posts.extend(r)
+        posts: list[CrawledPost] = []
+        for r in results:
+            if isinstance(r, list):
+                posts.extend(r)
+
+        # 상위 10개씩만 본문 fetch (동시 5개 제한)
+        sem = asyncio.Semaphore(5)
+
+        async def fill_body(post: CrawledPost) -> None:
+            if post.body:
+                return
+            async with sem:
+                post.body = await _fetch_body(client, post.url, post.source)
+
+        await asyncio.gather(*[fill_body(p) for p in posts], return_exceptions=True)
+
     return posts
 
 

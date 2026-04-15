@@ -93,7 +93,7 @@ async def _search_naver_news(
     category = _guess_category_from_title(title)
 
     return CrawledPost(
-        source="naver_api",
+        source="naver_news",
         external_id=ext_id,
         title=title,
         body=description,

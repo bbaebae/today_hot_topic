@@ -361,7 +361,7 @@ _SPORTS_KEYWORDS = re.compile(
     r"손흥민|이강인|류현진|박지성|야구|축구|농구|배구|골프|올림픽|월드컵|KBO|EPL|NBA|스포츠|득점|우승", re.IGNORECASE
 )
 _LOVE_KEYWORDS = re.compile(
-    r"연예인|아이돌|배우|가수|드라마|영화|열애|결별|결혼|이혼|연애|폭로|스캔들|엔터|팬", re.IGNORECASE
+    r"연예인|아이돌|배우|가수|드라마|영화|열애|결별|폭로|스캔들|엔터테인먼트|데뷔|팬미팅|콘서트|시상식|뮤직비디오|OST|컴백|활동중단|은퇴|소속사", re.IGNORECASE
 )
 
 

@@ -128,26 +128,28 @@ export default function DetailPage() {
               </div>
             )}
 
-            {/* 투표 섹션 */}
-            <PollSection
-              poll={topic.poll}
-              hasVoted={hasVoted}
-              votedOption={votedOption}
-              onVote={handleVote}
-              isSubmitting={isSubmitting}
-            />
-
-            {/* 일일 한도 메시지 */}
-            {isDailyLimitReached && (
-              <div className={styles.limitBanner}>
-                🎯 오늘의 포인트는 다 받았어요 (하루 3회 한도)
-              </div>
-            )}
-
             <div className={styles.bottomSpacer} />
           </motion.div>
         )}
       </div>
+
+      {/* 하단 고정 투표 섹션 */}
+      {topic && (
+        <div className={styles.stickyPoll}>
+          {isDailyLimitReached && (
+            <div className={styles.limitBanner}>
+              🎯 오늘의 포인트는 다 받았어요 (하루 3회 한도)
+            </div>
+          )}
+          <PollSection
+            poll={topic.poll}
+            hasVoted={hasVoted}
+            votedOption={votedOption}
+            onVote={handleVote}
+            isSubmitting={isSubmitting}
+          />
+        </div>
+      )}
 
       {/* 광고 확인 팝업 */}
       <AdConfirmModal

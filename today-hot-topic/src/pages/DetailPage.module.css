@@ -81,7 +81,19 @@
 }
 
 .bottomSpacer {
-  height: 32px;
+  height: 200px; /* stickyPoll 높이만큼 여백 */
+}
+
+.stickyPoll {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border-top: 1px solid var(--color-gray-100);
+  padding: 12px 0 0;
+  z-index: 50;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.06);
 }
 
 /* 로딩 스켈레톤 */

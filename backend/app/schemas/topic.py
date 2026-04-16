@@ -24,7 +24,9 @@ class TopicBase(BaseModel):
 
 
 class TopicListItem(TopicBase):
-    pass
+    poll_id: str = ""
+    poll_option_a: str = ""
+    poll_option_b: str = ""
 
 
 class PollSchema(BaseModel):

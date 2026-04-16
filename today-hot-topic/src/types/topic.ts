@@ -16,6 +16,9 @@ export interface Topic {
   viewCount: number;
   rank: number;
   createdAt: string;
+  pollId?: string;
+  pollOptionA?: string;
+  pollOptionB?: string;
 }
 
 export interface TopicDetail extends Topic {

@@ -10,6 +10,9 @@ export const mockTopics: Topic[] = [
     viewCount: 187432,
     rank: 1,
     createdAt: new Date(Date.now() - 1.5 * 60 * 60 * 1000).toISOString(),
+    pollId: "poll-001",
+    pollOptionA: "공감해요",
+    pollOptionB: "공감 안 해요",
   },
   {
     id: 'story-002',
@@ -167,6 +170,9 @@ export const mockTopics: Topic[] = [
     viewCount: 245678,
     rank: 3,
     createdAt: new Date(Date.now() - 1.5 * 60 * 60 * 1000).toISOString(),
+    pollId: "poll-001",
+    pollOptionA: "공감해요",
+    pollOptionB: "공감 안 해요",
   },
   {
     id: 'economy-004',
@@ -300,6 +306,9 @@ export const mockTopicDetails: Record<string, TopicDetail> = {
     viewCount: 187432,
     rank: 1,
     createdAt: new Date(Date.now() - 1.5 * 60 * 60 * 1000).toISOString(),
+    pollId: "poll-001",
+    pollOptionA: "공감해요",
+    pollOptionB: "공감 안 해요",
     sourceUrl: 'https://pann.nate.com',
     summary: [
       '직장동료가 냉장고에 있던 내 도시락을 허락 없이 먹고, 배고팠으니까 괜찮지 않냐며 오히려 당당한 태도를 보였다.',

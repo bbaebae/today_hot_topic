@@ -25,44 +25,72 @@ function formatTimeAgo(iso: string): string {
 
 export function TopicItem({ topic, onClick }: TopicItemProps) {
   const isHot = topic.rank <= 3;
+  const hasPoll = !!(topic.pollOptionA && topic.pollOptionB);
 
   const handleClick = () => {
     safeHaptic({ type: 'softMedium' });
     onClick();
   };
 
+  const handleVoteClick = (e: React.MouseEvent, option: 'A' | 'B') => {
+    e.stopPropagation();
+    safeHaptic({ type: 'softMedium' });
+    onClick(); // 투표는 상세 페이지에서
+  };
+
   return (
     <li className={styles.item} onClick={handleClick}>
-      <div className={clsx(styles.rank, isHot && styles.hot)}>
-        {isHot ? '🔥' : topic.rank}
-      </div>
+      <div className={styles.main}>
+        <div className={clsx(styles.rank, isHot && styles.hot)}>
+          {isHot ? '🔥' : topic.rank}
+        </div>
 
-      <div className={styles.content}>
-        <p className={styles.title}>{topic.title}</p>
-        <div className={styles.meta}>
-          <span>조회 {formatViewCount(topic.viewCount)}</span>
-          <span className={styles.dot}>·</span>
-          <span>{formatTimeAgo(topic.createdAt)}</span>
+        <div className={styles.content}>
+          <p className={styles.title}>{topic.title}</p>
+          <div className={styles.meta}>
+            <span>조회 {formatViewCount(topic.viewCount)}</span>
+            <span className={styles.dot}>·</span>
+            <span>{formatTimeAgo(topic.createdAt)}</span>
+          </div>
+        </div>
+
+        {topic.imageUrl && (
+          <div className={styles.thumbnail}>
+            <img src={topic.imageUrl} alt="" loading="lazy" />
+          </div>
+        )}
+
+        <div className={styles.chevron}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M9 18l6-6-6-6"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </div>
       </div>
 
-      {topic.imageUrl && (
-        <div className={styles.thumbnail}>
-          <img src={topic.imageUrl} alt="" loading="lazy" />
+      {hasPoll && (
+        <div className={styles.miniPoll}>
+          <button
+            className={clsx(styles.miniPollBtn, styles.optionA)}
+            onClick={(e) => handleVoteClick(e, 'A')}
+          >
+            <span className={styles.miniPollLabel}>A</span>
+            <span className={styles.miniPollText}>{topic.pollOptionA}</span>
+          </button>
+          <button
+            className={clsx(styles.miniPollBtn, styles.optionB)}
+            onClick={(e) => handleVoteClick(e, 'B')}
+          >
+            <span className={styles.miniPollLabel}>B</span>
+            <span className={styles.miniPollText}>{topic.pollOptionB}</span>
+          </button>
         </div>
       )}
-
-      <div className={styles.chevron}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-          <path
-            d="M9 18l6-6-6-6"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </div>
     </li>
   );
 }

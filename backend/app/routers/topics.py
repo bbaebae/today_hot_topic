@@ -19,10 +19,12 @@ async def list_topics(
 ):
     client = db()
 
+    _SELECT = "id, title, category, image_url, view_count, rank, created_at, polls(id, option_a_text, option_b_text)"
+
     if category:
         res = (
             client.table("topics")
-            .select("id, title, category, image_url, view_count, rank, created_at")
+            .select(_SELECT)
             .eq("category", category)
             .order("rank")
             .limit(50)
@@ -30,11 +32,10 @@ async def list_topics(
         )
         topics = res.data or []
 
-        # 해당 카테고리 토픽이 없으면 전체 최신 토픽으로 폴백
         if not topics:
             res = (
                 client.table("topics")
-                .select("id, title, category, image_url, view_count, rank, created_at")
+                .select(_SELECT)
                 .order("created_at", desc=True)
                 .limit(30)
                 .execute()
@@ -43,14 +44,24 @@ async def list_topics(
     else:
         res = (
             client.table("topics")
-            .select("id, title, category, image_url, view_count, rank, created_at")
+            .select(_SELECT)
             .order("view_count", desc=True)
             .limit(50)
             .execute()
         )
         topics = res.data or []
 
-    return TopicsResponse(topics=[TopicListItem(**row) for row in topics])
+    items = []
+    for row in topics:
+        poll_list = row.pop("polls", None) or []
+        poll = poll_list[0] if poll_list else {}
+        items.append(TopicListItem(
+            **row,
+            poll_id=poll.get("id", ""),
+            poll_option_a=poll.get("option_a_text", ""),
+            poll_option_b=poll.get("option_b_text", ""),
+        ))
+    return TopicsResponse(topics=items)
 
 
 @router.get("/{topic_id}", response_model=TopicDetail)

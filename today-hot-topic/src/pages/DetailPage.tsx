@@ -121,6 +121,13 @@ export default function DetailPage() {
               createdAt={topic.createdAt}
             />
 
+            {/* 본문 */}
+            {topic.body && (
+              <div className={styles.bodySection}>
+                <p className={styles.bodyText}>{topic.body}</p>
+              </div>
+            )}
+
             {/* 투표 섹션 */}
             <PollSection
               poll={topic.poll}

@@ -84,6 +84,7 @@ async def run_ingestion() -> dict[str, int]:
                 "image_url": post.image_url,
                 "view_count": post.view_count,
                 "rank": 9999,
+                "body": post.body,
                 "summary_json": json.dumps(summary_lines, ensure_ascii=False),
                 "created_at": now,
             },

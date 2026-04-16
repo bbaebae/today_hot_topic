@@ -41,6 +41,7 @@ class PollSchema(BaseModel):
 
 class TopicDetail(TopicBase):
     source_url: str
+    body: str = ""
     summary: list[str]
     poll: PollSchema
 

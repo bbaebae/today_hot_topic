@@ -55,6 +55,20 @@
   object-fit: cover;
 }
 
+.bodySection {
+  margin: 0 0 8px;
+  padding: 16px 20px;
+  background: #ffffff;
+}
+
+.bodyText {
+  font-size: 15px;
+  color: var(--color-gray-800);
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: keep-all;
+}
+
 .limitBanner {
   margin: 0 20px 12px;
   padding: 12px 16px;

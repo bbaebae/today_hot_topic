@@ -20,6 +20,7 @@ export interface Topic {
 
 export interface TopicDetail extends Topic {
   sourceUrl: string;
+  body: string;
   summary: string[];
   poll: Poll;
 }

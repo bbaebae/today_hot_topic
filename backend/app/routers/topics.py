@@ -100,6 +100,7 @@ async def get_topic(topic_id: str):
         rank=row["rank"],
         created_at=row["created_at"],
         source_url=row.get("source_url", ""),
+        body=row.get("body", ""),
         summary=summary,
         poll={
             "id": poll_data.get("id", ""),

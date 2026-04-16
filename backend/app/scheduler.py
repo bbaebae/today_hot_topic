@@ -22,7 +22,25 @@ _scheduler: AsyncIOScheduler | None = None
 _KST = "Asia/Seoul"
 
 
+async def _cleanup_old_topics() -> None:
+    """24시간 이상 된 토픽·투표를 삭제합니다."""
+    from datetime import datetime, timezone, timedelta
+    from .database import db
+    try:
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+        client = db()
+        old = client.table("topics").select("id").lt("created_at", cutoff).execute()
+        old_ids = [r["id"] for r in (old.data or [])]
+        if old_ids:
+            client.table("polls").delete().in_("topic_id", old_ids).execute()
+            client.table("topics").delete().in_("id", old_ids).execute()
+            logger.info("Cleaned up %d old topics", len(old_ids))
+    except Exception:
+        logger.exception("Cleanup job failed")
+
+
 async def _run_ingestion() -> None:
+    await _cleanup_old_topics()
     from .services.ingestion import run_ingestion
     try:
         result = await run_ingestion()

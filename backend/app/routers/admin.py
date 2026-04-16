@@ -54,3 +54,15 @@ async def trigger_rank(x_admin_key: str | None = Header(None)):
     from ..services.ranking import recompute_ranks
     await recompute_ranks()
     return {"ok": True}
+
+
+@router.post("/reset")
+async def reset_topics(x_admin_key: str | None = Header(None)):
+    """모든 토픽·투표·포인트 트랜잭션을 삭제합니다 (재인제스션 전 초기화용)."""
+    _verify(x_admin_key)
+    from ..database import db
+    client = db()
+    client.table("point_transactions").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+    client.table("polls").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+    client.table("topics").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+    return {"ok": True, "message": "모든 토픽/투표/포인트 내역 삭제 완료"}

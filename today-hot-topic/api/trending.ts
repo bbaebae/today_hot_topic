@@ -125,11 +125,7 @@ async function fetchFromGoogleTrends(): Promise<string[]> {
 
 /**
  * Zum HTML에서 실시간 검색어 추출.
- *
- * 후보 패턴:
- *   1. data-keyword="검색어" 속성
- *   2. <span class="keyword">검색어</span>
- *   3. realtime / trend 섹션 내 <a> 텍스트
+ * 구조: <span class="issue-word-list__keyword">검색어</span>
  */
 function parseZumKeywords(html: string): string[] {
   const keywords: string[] = [];
@@ -143,29 +139,16 @@ function parseZumKeywords(html: string): string[] {
     }
   };
 
-  // 패턴 1: data-keyword 속성
+  // 1순위: issue-word-list__keyword 클래스 (zum.com 실시간 트렌드)
+  for (const m of html.matchAll(/<span[^>]+class="issue-word-list__keyword"[^>]*>([^<]+)<\/span>/g)) {
+    add(decodeHtmlEntities(m[1]));
+    if (keywords.length >= 10) return keywords;
+  }
+
+  // 2순위: data-keyword 속성
   for (const m of html.matchAll(/data-keyword="([^"]+)"/g)) {
     add(decodeHtmlEntities(m[1]));
     if (keywords.length >= 10) return keywords;
-  }
-
-  // 패턴 2: <span class="keyword">...</span>
-  for (const m of html.matchAll(/<span[^>]+class="[^"]*keyword[^"]*"[^>]*>([^<]{2,30})<\/span>/g)) {
-    add(decodeHtmlEntities(m[1]));
-    if (keywords.length >= 10) return keywords;
-  }
-
-  // 패턴 3: realtime / trend 관련 섹션 내 <a> 텍스트
-  const sectionMatch = html.match(
-    /(?:realtime|trend|ranking)[\s\S]{0,3000}?<\/(?:section|div|ul)>/i
-  );
-  if (sectionMatch) {
-    for (const m of sectionMatch[0].matchAll(/<a[^>]*>([^<]{2,30})<\/a>/g)) {
-      const text = decodeHtmlEntities(m[1]).trim();
-      if (/^[\d\s위]+$/.test(text)) continue;
-      add(text);
-      if (keywords.length >= 10) return keywords;
-    }
   }
 
   return keywords;

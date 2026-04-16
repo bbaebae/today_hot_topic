@@ -39,15 +39,37 @@ _TIMEOUT = httpx.Timeout(15.0)
 _BODY_TIMEOUT = httpx.Timeout(10.0)
 
 
-async def _fetch_body(client: httpx.AsyncClient, url: str, source: str) -> str:
-    """소스별 상세 페이지에서 본문을 추출합니다."""
+def _extract_og_image(soup: BeautifulSoup) -> str | None:
+    """OG 이미지 또는 첫 번째 기사 이미지 URL을 추출합니다."""
+    # 1순위: og:image
+    og = soup.find("meta", property="og:image")
+    if og and og.get("content"):
+        url = og["content"].strip()
+        if url.startswith("http"):
+            return url
+
+    # 2순위: twitter:image
+    tw = soup.find("meta", attrs={"name": "twitter:image"})
+    if tw and tw.get("content"):
+        url = tw["content"].strip()
+        if url.startswith("http"):
+            return url
+
+    return None
+
+
+async def _fetch_page(
+    client: httpx.AsyncClient, url: str, source: str
+) -> tuple[str, str | None]:
+    """소스별 상세 페이지에서 (본문, 이미지 URL)을 추출합니다."""
     try:
         resp = await client.get(url, headers=_HEADERS, timeout=_BODY_TIMEOUT)
         resp.raise_for_status()
     except Exception:
-        return ""
+        return "", None
 
     soup = BeautifulSoup(resp.text, "lxml")
+    image_url = _extract_og_image(soup)
 
     selectors: list[str] = []
     if source == "pann":
@@ -67,12 +89,12 @@ async def _fetch_body(client: httpx.AsyncClient, url: str, source: str) -> str:
             "div.article_body",
             "div.article-body",
             "div.article-content",
-            "div#article-view-content-div",  # 오마이뉴스, 미디어오늘
+            "div#article-view-content-div",
             "div.news_body",
             "div#newsct_article",
-            "div.story-news",               # 뉴스1
-            "div#articeBody",               # 헤럴드경제
-            "div#articleBody",              # 다수 언론사
+            "div.story-news",
+            "div#articeBody",
+            "div#articleBody",
             "div.article_txt",
             "section.article-body",
         ]
@@ -82,16 +104,22 @@ async def _fetch_body(client: httpx.AsyncClient, url: str, source: str) -> str:
         if el:
             text = el.get_text(separator="\n", strip=True)
             if len(text) > 50:
-                return text[:3000]
+                return text[:3000], image_url
 
     # 마지막 fallback: <article> 태그
     el = soup.find("article")
     if el:
         text = el.get_text(separator="\n", strip=True)
         if len(text) > 50:
-            return text[:3000]
+            return text[:3000], image_url
 
-    return ""
+    return "", image_url
+
+
+# 하위호환 래퍼 (news_crawler.py에서 사용)
+async def _fetch_body(client: httpx.AsyncClient, url: str, source: str) -> str:
+    body, _ = await _fetch_page(client, url, source)
+    return body
 
 
 @dataclass
@@ -336,11 +364,15 @@ async def crawl_all() -> list[CrawledPost]:
         sem = asyncio.Semaphore(5)
 
         async def fill_body(post: CrawledPost) -> None:
-            if post.body:
+            if post.body and post.image_url:
                 return
             async with sem:
                 target_url = post.fetch_url or post.url
-                post.body = await _fetch_body(client, target_url, post.source)
+                body, image_url = await _fetch_page(client, target_url, post.source)
+                if body:
+                    post.body = body
+                if image_url and not post.image_url:
+                    post.image_url = image_url
 
         await asyncio.gather(*[fill_body(p) for p in posts], return_exceptions=True)
 

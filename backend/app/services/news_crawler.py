@@ -139,13 +139,16 @@ async def crawl_news() -> list[CrawledPost]:
         sem = asyncio.Semaphore(5)
 
         async def fill_body(post: CrawledPost) -> None:
-            if post.body and len(post.body) > 100:
+            if post.body and len(post.body) > 100 and post.image_url:
                 return
             async with sem:
+                from .crawler import _fetch_page
                 target_url = post.fetch_url or post.url
-                body = await _fetch_body(client, target_url, "naver_news")
+                body, image_url = await _fetch_page(client, target_url, "naver_news")
                 if body:
                     post.body = body
+                if image_url and not post.image_url:
+                    post.image_url = image_url
 
         await asyncio.gather(*[fill_body(p) for p in posts], return_exceptions=True)
 

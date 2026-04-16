@@ -4,6 +4,7 @@ export const config = { runtime: 'edge' };
 
 const ZUM_URL = 'https://zum.com/';
 const ZUM_REALTIME_URL = 'https://api2.zum.com/zum-main/v2/realtime/keyword';
+const DAUM_MOBILE_URL = 'https://m.daum.net/';
 const GOOGLE_TRENDS_URL =
   'https://trends.google.com/trending/rss?geo=KR&sort=search-volume';
 
@@ -33,7 +34,13 @@ export default async function handler(): Promise<Response> {
     source = 'zum-html';
   }
 
-  // 3차: Google Trends fallback
+  // 3차: 다음 모바일 HTML
+  if (keywords.length === 0) {
+    keywords = await fetchFromDaum();
+    source = 'daum';
+  }
+
+  // 4차: Google Trends fallback
   if (keywords.length === 0) {
     keywords = await fetchFromGoogleTrends();
     source = 'google-trends';
@@ -91,6 +98,46 @@ async function fetchFromZumHtml(): Promise<string[]> {
   } catch {
     return [];
   }
+}
+
+/** 다음 모바일 실시간 트렌드 — 실패 시 빈 배열 반환 */
+async function fetchFromDaum(): Promise<string[]> {
+  try {
+    const res = await fetch(DAUM_MOBILE_URL, {
+      headers: {
+        ...HEADERS,
+        Referer: 'https://m.daum.net/',
+      },
+    });
+    if (!res.ok) return [];
+
+    const html = await res.text();
+    return parseDaumKeywords(html);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 다음 모바일 HTML에서 실시간 트렌드 추출.
+ * 구조: href="...DA=RT1...&q=키워드" (list_trendrank 섹션)
+ */
+function parseDaumKeywords(html: string): string[] {
+  const keywords: string[] = [];
+  const seen = new Set<string>();
+
+  // DA=RT{n} 패턴으로 실시간 트렌드 링크만 추출
+  const matches = html.matchAll(/DA=RT\d[^"]*?[?&]q=([^"&\s]+)/g);
+  for (const m of matches) {
+    const kw = decodeURIComponent(m[1].replace(/\+/g, ' ')).trim();
+    if (kw && kw.length >= 2 && !seen.has(kw)) {
+      seen.add(kw);
+      keywords.push(kw);
+    }
+    if (keywords.length >= 10) break;
+  }
+
+  return keywords;
 }
 
 /** Google Trends RSS fallback — 실패 시 빈 배열 반환 */

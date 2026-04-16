@@ -84,7 +84,11 @@ async def _search_naver_news(
     item = items[0]
     title = _strip_html(item.get("title", keyword))
     description = _strip_html(item.get("description", ""))
-    link = item.get("originallink") or item.get("link", "")
+    naver_link = item.get("link", "")
+    original_link = item.get("originallink", "")
+    link = original_link or naver_link          # 사용자에게 보여줄 원본 링크
+    # 본문 fetch는 naver 링크 우선 (우리 selectors가 naver 구조에 맞음)
+    fetch_url = naver_link if "naver.com" in naver_link else link
 
     # 외부 ID: URL에서 추출하거나 title 해시 사용
     ext_id = re.sub(r"[^\w]", "", link)[-40:] or re.sub(r"[^\w]", "", title)[:40]
@@ -100,6 +104,7 @@ async def _search_naver_news(
         url=link,
         category=category,
         view_count=0,
+        fetch_url=fetch_url,
     )
 
 
@@ -137,7 +142,8 @@ async def crawl_news() -> list[CrawledPost]:
             if post.body and len(post.body) > 100:
                 return
             async with sem:
-                body = await _fetch_body(client, post.url, "naver_news")
+                target_url = post.fetch_url or post.url
+                body = await _fetch_body(client, target_url, "naver_news")
                 if body:
                     post.body = body
 

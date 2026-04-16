@@ -56,13 +56,25 @@ async def _fetch_body(client: httpx.AsyncClient, url: str, source: str) -> str:
         selectors = ["div.view_content", "div.board_content"]
     elif source == "naver_news":
         selectors = [
+            # 네이버 뉴스 최신 (n.news.naver.com)
             "div#dic_area",
             "div.newsct_article",
             "article#dic_area",
+            # 네이버 뉴스 구형
             "div._article_body_contents",
-            "div.article_body",
             "div#articleBodyContents",
+            # 외부 언론사 공통 패턴
+            "div.article_body",
             "div.article-body",
+            "div.article-content",
+            "div#article-view-content-div",  # 오마이뉴스, 미디어오늘
+            "div.news_body",
+            "div#newsct_article",
+            "div.story-news",               # 뉴스1
+            "div#articeBody",               # 헤럴드경제
+            "div#articleBody",              # 다수 언론사
+            "div.article_txt",
+            "section.article-body",
         ]
 
     for sel in selectors:
@@ -71,6 +83,13 @@ async def _fetch_body(client: httpx.AsyncClient, url: str, source: str) -> str:
             text = el.get_text(separator="\n", strip=True)
             if len(text) > 50:
                 return text[:3000]
+
+    # 마지막 fallback: <article> 태그
+    el = soup.find("article")
+    if el:
+        text = el.get_text(separator="\n", strip=True)
+        if len(text) > 50:
+            return text[:3000]
 
     return ""
 
@@ -85,6 +104,7 @@ class CrawledPost:
     category: Category
     image_url: str | None = None
     view_count: int = 0
+    fetch_url: str = ""  # 본문 fetch용 URL (기본값: url과 동일)
 
 
 # ---------------------------------------------------------------------------
@@ -319,7 +339,8 @@ async def crawl_all() -> list[CrawledPost]:
             if post.body:
                 return
             async with sem:
-                post.body = await _fetch_body(client, post.url, post.source)
+                target_url = post.fetch_url or post.url
+                post.body = await _fetch_body(client, target_url, post.source)
 
         await asyncio.gather(*[fill_body(p) for p in posts], return_exceptions=True)
 

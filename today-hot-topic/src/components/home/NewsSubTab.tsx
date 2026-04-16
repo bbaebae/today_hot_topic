@@ -7,7 +7,7 @@ const NEWS_SUBS: { key: NewsSubCategory; label: string }[] = [
   { key: 'society', label: '사회' },
   { key: 'economy', label: '경제' },
   { key: 'sports', label: '스포츠' },
-  { key: 'love', label: '연애' },
+  { key: 'love', label: '연예' },
 ];
 
 interface NewsSubTabProps {

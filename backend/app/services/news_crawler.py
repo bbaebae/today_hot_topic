@@ -111,8 +111,9 @@ def _strip_html(text: str) -> str:
 async def crawl_news() -> list[CrawledPost]:
     """다음 트렌딩 키워드 기반 뉴스 기사를 크롤링합니다."""
     from ..config import settings
+    from .crawler import _fetch_body, _HEADERS, _TIMEOUT
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(follow_redirects=True) as client:
         keywords = await _fetch_daum_trending(client)
         if not keywords:
             return []
@@ -127,6 +128,19 @@ async def crawl_news() -> list[CrawledPost]:
             for kw in keywords
         ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
+        posts = [r for r in results if isinstance(r, CrawledPost)]
 
-    posts = [r for r in results if isinstance(r, CrawledPost)]
+        # 본문 fetch (동시 5개 제한)
+        sem = asyncio.Semaphore(5)
+
+        async def fill_body(post: CrawledPost) -> None:
+            if post.body and len(post.body) > 100:
+                return
+            async with sem:
+                body = await _fetch_body(client, post.url, "naver_news")
+                if body:
+                    post.body = body
+
+        await asyncio.gather(*[fill_body(p) for p in posts], return_exceptions=True)
+
     return posts

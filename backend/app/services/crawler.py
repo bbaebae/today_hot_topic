@@ -55,7 +55,15 @@ async def _fetch_body(client: httpx.AsyncClient, url: str, source: str) -> str:
     elif source == "ruliweb":
         selectors = ["div.view_content", "div.board_content"]
     elif source == "naver_news":
-        selectors = ["div#dic_area", "div.newsct_article", "article#dic_area"]
+        selectors = [
+            "div#dic_area",
+            "div.newsct_article",
+            "article#dic_area",
+            "div._article_body_contents",
+            "div.article_body",
+            "div#articleBodyContents",
+            "div.article-body",
+        ]
 
     for sel in selectors:
         el = soup.select_one(sel)

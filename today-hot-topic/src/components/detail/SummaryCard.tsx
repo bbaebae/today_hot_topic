@@ -20,9 +20,10 @@ function formatTimeAgo(iso: string): string {
 
 function getSourceName(url: string): string {
   if (url.includes('nate.com')) return '네이트판';
+  if (url.includes('ruliweb.com')) return '루리웹';
   if (url.includes('dcinside')) return '디시인사이드';
   if (url.includes('fmkorea')) return '펨코';
-  if (url.includes('naver')) return '네이버';
+  if (url.includes('naver.com')) return '네이버';
   if (url.includes('coindesk')) return '코인데스크';
   return '커뮤니티';
 }

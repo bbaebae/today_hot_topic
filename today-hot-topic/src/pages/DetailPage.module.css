@@ -29,6 +29,18 @@
   word-break: keep-all;
 }
 
+.sourceLink {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-blue-500);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
 .imageWrap {
   width: 100%;
   aspect-ratio: 16 / 9;

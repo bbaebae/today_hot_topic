@@ -12,14 +12,17 @@ import { safeStorage } from '../utils/toss';
 
 const TOKEN_KEY = 'server_jwt';
 const IS_MOCK = import.meta.env.PUBLIC_USE_MOCK === 'true';
+// Toss 앱 WebView 환경에서만 appLogin() 호출 (일반 브라우저에서는 hanging 방지)
+const IS_TOSS_APP = typeof window !== 'undefined' && 'ReactNativeWebView' in window;
+const SHOULD_AUTH = !IS_MOCK && IS_TOSS_APP;
 
 export function useAuth() {
   const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(!IS_MOCK);
+  const [isLoading, setIsLoading] = useState(SHOULD_AUTH);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (IS_MOCK) return;
+    if (!SHOULD_AUTH) return;
 
     safeStorage.getItem(TOKEN_KEY)
       .then((saved) => {

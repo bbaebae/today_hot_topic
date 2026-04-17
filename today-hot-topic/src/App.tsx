@@ -62,7 +62,7 @@ function AppInner() {
   const location = useLocation();
   const isDetailPage = location.pathname.startsWith('/topics/');
 
-  if (authLoading && import.meta.env.PUBLIC_USE_MOCK !== 'true') {
+  if (authLoading) {
     return <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center' }} />;
   }
 

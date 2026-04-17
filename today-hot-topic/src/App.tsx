@@ -52,12 +52,16 @@ function AppInner() {
   const { isLoading: authLoading } = useAuth();
 
   useEffect(() => {
-    if (!TossAds.initialize.isSupported()) return;
-    TossAds.initialize({
-      callbacks: {
-        onInitializationFailed: (error) => console.error('[TossAds] init failed:', error),
-      },
-    });
+    try {
+      if (!TossAds.initialize.isSupported()) return;
+      TossAds.initialize({
+        callbacks: {
+          onInitializationFailed: (error) => console.error('[TossAds] init failed:', error),
+        },
+      });
+    } catch {
+      // not in Toss app environment
+    }
   }, []);
   const location = useLocation();
   const isDetailPage = location.pathname.startsWith('/topics/');

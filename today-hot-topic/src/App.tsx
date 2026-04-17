@@ -1,7 +1,8 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { ReactNode } from 'react';
+import { TossAds } from '@apps-in-toss/web-framework';
 import { useDeviceViewport } from './hooks/useDeviceViewport';
 import { useAuth } from './hooks/useAuth';
 import { BottomNav } from './components/layout/BottomNav';
@@ -48,8 +49,16 @@ function AnimatedRoutes() {
 
 function AppInner() {
   useDeviceViewport();
-  // Mock 모드가 아닐 때만 실제 Toss 로그인 실행
   const { isLoading: authLoading } = useAuth();
+
+  useEffect(() => {
+    if (!TossAds.initialize.isSupported()) return;
+    TossAds.initialize({
+      callbacks: {
+        onInitializationFailed: (error) => console.error('[TossAds] init failed:', error),
+      },
+    });
+  }, []);
   const location = useLocation();
   const isDetailPage = location.pathname.startsWith('/topics/');
 

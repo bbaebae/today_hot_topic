@@ -69,7 +69,7 @@ export async function fetchTrendingKeywords(): Promise<TrendingKeyword[]> {
   const cached = getCached();
   if (cached) return cached;
 
-  const res = await fetch('/api/trending');
+  const res = await fetch('https://today-hot-topic.vercel.app/api/trending');
   if (!res.ok) throw new Error(`trending fetch failed: ${res.status}`);
 
   const data = (await res.json()) as { keywords: string[] };

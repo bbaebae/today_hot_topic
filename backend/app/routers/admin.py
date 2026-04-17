@@ -66,3 +66,76 @@ async def reset_topics(x_admin_key: str | None = Header(None)):
     client.table("polls").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
     client.table("topics").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
     return {"ok": True, "message": "모든 토픽/투표/포인트 내역 삭제 완료"}
+
+
+@router.post("/backfill-bodies")
+async def backfill_bodies(
+    background_tasks: BackgroundTasks,
+    x_admin_key: str | None = Header(None),
+):
+    """body가 비어 있는 기존 토픽들의 본문을 크롤링해서 채웁니다."""
+    _verify(x_admin_key)
+
+    async def _run():
+        import asyncio
+        import logging
+        import httpx
+        from ..database import db
+        from ..services.crawler import _fetch_page
+
+        logger = logging.getLogger(__name__)
+        client = db()
+
+        # body가 없거나 빈 토픽 조회
+        res = client.table("topics").select("id, source_url, source").eq("body", "").limit(50).execute()
+        rows = res.data or []
+        if not rows:
+            # None 또는 공백인 경우도 처리
+            res2 = client.table("topics").select("id, source_url, source").is_("body", "null").limit(50).execute()
+            rows = res2.data or []
+
+        if not rows:
+            logger.info("backfill-bodies: 빈 body 토픽 없음")
+            return
+
+        logger.info("backfill-bodies: %d개 토픽 본문 채우기 시작", len(rows))
+        sem = asyncio.Semaphore(5)
+
+        async def fill(row: dict) -> None:
+            url = row.get("source_url", "")
+            if not url:
+                return
+            source = row.get("source", "naver_news")
+            # source_url 기반으로 source 추정
+            if "pann.nate" in url:
+                source = "pann"
+            elif "ruliweb" in url:
+                source = "ruliweb"
+            else:
+                source = "naver_news"
+
+            async with sem:
+                try:
+                    async with httpx.AsyncClient(follow_redirects=True) as c:
+                        body, image_url = await _fetch_page(c, url, source)
+                except Exception:
+                    return
+
+            if not body:
+                return
+
+            update_data: dict = {"body": body}
+            if image_url:
+                update_data["image_url"] = image_url
+
+            try:
+                client.table("topics").update(update_data).eq("id", row["id"]).execute()
+                logger.info("backfill-bodies: topic %s 완료 (body %d자)", row["id"], len(body))
+            except Exception as e:
+                logger.error("backfill-bodies: topic %s 업데이트 실패: %s", row["id"], e)
+
+        await asyncio.gather(*[fill(r) for r in rows], return_exceptions=True)
+        logger.info("backfill-bodies: 완료")
+
+    background_tasks.add_task(_run)
+    return {"ok": True, "message": f"본문 백필 시작 (최대 50개)"}

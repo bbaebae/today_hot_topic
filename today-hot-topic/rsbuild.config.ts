@@ -14,6 +14,9 @@ export default defineConfig({
       'import.meta.env.PUBLIC_USE_MOCK': JSON.stringify(
         process.env.PUBLIC_USE_MOCK !== 'false' ? 'true' : 'false'
       ),
+      'import.meta.env.PUBLIC_API_BASE_URL': JSON.stringify(
+        process.env.PUBLIC_API_BASE_URL ?? 'https://todayhottopic-production.up.railway.app'
+      ),
     },
   },
   server: {

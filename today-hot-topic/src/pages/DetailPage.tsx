@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { loadFullScreenAd, showFullScreenAd } from '@apps-in-toss/web-framework';
 import { useTopicDetail } from '../hooks/useTopicDetail';
 import { useVote } from '../hooks/useVote';
 import { useReward } from '../hooks/useReward';
@@ -11,6 +12,8 @@ import { PollSection } from '../components/detail/PollSection';
 import { RewardModal } from '../components/detail/RewardModal';
 import { AdConfirmModal } from '../components/detail/AdConfirmModal';
 import styles from './DetailPage.module.css';
+
+const AD_GROUP_ID = import.meta.env.VITE_AD_GROUP_ID ?? 'ait-ad-test-rewarded-id';
 
 function DetailSkeleton() {
   return (
@@ -41,6 +44,20 @@ export default function DetailPage() {
     useReward();
   const [adConfirmOpen, setAdConfirmOpen] = useState(false);
   const [pendingPollId, setPendingPollId] = useState<string | null>(null);
+  const isAdLoaded = useRef(false);
+
+  // 광고 미리 로드
+  useEffect(() => {
+    if (!loadFullScreenAd.isSupported()) return;
+    const unregister = loadFullScreenAd({
+      options: { adGroupId: AD_GROUP_ID },
+      onEvent: (event) => {
+        if (event.type === 'loaded') isAdLoaded.current = true;
+      },
+      onError: () => { isAdLoaded.current = false; },
+    });
+    return () => unregister();
+  }, []);
 
   const handleVote = async (option: 'A' | 'B') => {
     if (!topic) return;
@@ -52,12 +69,29 @@ export default function DetailPage() {
     }
   };
 
-  const handleAdConfirm = async () => {
+  const handleAdConfirm = (pollId: string) => {
     setAdConfirmOpen(false);
-    if (pendingPollId) {
-      await claim('ad', pendingPollId);
-      setPendingPollId(null);
-    }
+    if (!showFullScreenAd.isSupported() || !isAdLoaded.current) return;
+
+    showFullScreenAd({
+      options: { adGroupId: AD_GROUP_ID },
+      onEvent: (event) => {
+        if (event.type === 'userEarnedReward') {
+          claim('ad', pollId);
+        }
+        if (event.type === 'dismissed') {
+          isAdLoaded.current = false;
+          // 다음 광고 미리 로드
+          loadFullScreenAd({
+            options: { adGroupId: AD_GROUP_ID },
+            onEvent: (e) => { if (e.type === 'loaded') isAdLoaded.current = true; },
+            onError: () => {},
+          });
+        }
+      },
+      onError: () => {},
+    });
+    setPendingPollId(null);
   };
 
   const handleAdCancel = () => {
@@ -154,7 +188,7 @@ export default function DetailPage() {
       {/* 광고 확인 팝업 */}
       <AdConfirmModal
         isOpen={adConfirmOpen}
-        onConfirm={handleAdConfirm}
+        onConfirm={() => pendingPollId && handleAdConfirm(pendingPollId)}
         onCancel={handleAdCancel}
       />
 

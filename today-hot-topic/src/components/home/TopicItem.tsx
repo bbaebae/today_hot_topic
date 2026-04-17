@@ -25,17 +25,10 @@ function formatTimeAgo(iso: string): string {
 
 export function TopicItem({ topic, onClick }: TopicItemProps) {
   const isHot = topic.rank <= 3;
-  const hasPoll = !!(topic.pollOptionA && topic.pollOptionB);
 
   const handleClick = () => {
     safeHaptic({ type: 'softMedium' });
     onClick();
-  };
-
-  const handleVoteClick = (e: React.MouseEvent, option: 'A' | 'B') => {
-    e.stopPropagation();
-    safeHaptic({ type: 'softMedium' });
-    onClick(); // 투표는 상세 페이지에서
   };
 
   return (
@@ -72,25 +65,6 @@ export function TopicItem({ topic, onClick }: TopicItemProps) {
           </svg>
         </div>
       </div>
-
-      {hasPoll && (
-        <div className={styles.miniPoll}>
-          <button
-            className={clsx(styles.miniPollBtn, styles.optionA)}
-            onClick={(e) => handleVoteClick(e, 'A')}
-          >
-            <span className={styles.miniPollLabel}>A</span>
-            <span className={styles.miniPollText}>{topic.pollOptionA}</span>
-          </button>
-          <button
-            className={clsx(styles.miniPollBtn, styles.optionB)}
-            onClick={(e) => handleVoteClick(e, 'B')}
-          >
-            <span className={styles.miniPollLabel}>B</span>
-            <span className={styles.miniPollText}>{topic.pollOptionB}</span>
-          </button>
-        </div>
-      )}
     </li>
   );
 }

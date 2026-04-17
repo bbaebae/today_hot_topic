@@ -48,15 +48,19 @@ export default function DetailPage() {
 
   // 광고 미리 로드
   useEffect(() => {
-    if (!loadFullScreenAd.isSupported()) return;
-    const unregister = loadFullScreenAd({
-      options: { adGroupId: AD_GROUP_ID },
-      onEvent: (event) => {
-        if (event.type === 'loaded') isAdLoaded.current = true;
-      },
-      onError: () => { isAdLoaded.current = false; },
-    });
-    return () => unregister();
+    try {
+      if (!loadFullScreenAd.isSupported()) return;
+      const unregister = loadFullScreenAd({
+        options: { adGroupId: AD_GROUP_ID },
+        onEvent: (event) => {
+          if (event.type === 'loaded') isAdLoaded.current = true;
+        },
+        onError: () => { isAdLoaded.current = false; },
+      });
+      return () => unregister();
+    } catch {
+      // not in Toss app environment
+    }
   }, []);
 
   const handleVote = async (option: 'A' | 'B') => {
@@ -71,7 +75,11 @@ export default function DetailPage() {
 
   const handleAdConfirm = (pollId: string) => {
     setAdConfirmOpen(false);
-    if (!showFullScreenAd.isSupported() || !isAdLoaded.current) return;
+    try {
+      if (!showFullScreenAd.isSupported() || !isAdLoaded.current) return;
+    } catch {
+      return;
+    }
 
     showFullScreenAd({
       options: { adGroupId: AD_GROUP_ID },

@@ -1,6 +1,6 @@
 {
   "buildCommand": "PUBLIC_USE_MOCK=false yarn build",
-  "outputDirectory": "dist/web",
+  "outputDirectory": "dist",
   "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }],
   "headers": [
     {

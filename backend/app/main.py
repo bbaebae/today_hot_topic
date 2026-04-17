@@ -18,7 +18,6 @@ def _restore_certs() -> None:
     cert_map = {
         "TOSS_MTLS_CERT_B64": settings.toss_mtls_cert_path,
         "TOSS_MTLS_KEY_B64":  settings.toss_mtls_key_path,
-        "TOSS_MTLS_CA_B64":   settings.toss_mtls_ca_path,
     }
     for env_key, file_path in cert_map.items():
         b64 = os.getenv(env_key)

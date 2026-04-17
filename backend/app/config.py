@@ -16,11 +16,10 @@ class Settings(BaseSettings):
 
     # Toss mTLS
     toss_api_base_url: str = "https://apps-in-toss-api.toss.im"
-    toss_mtls_cert_path: str = "certs/client.crt"
-    toss_mtls_key_path: str = "certs/client.key"
-    toss_mtls_ca_path: str = "certs/toss-ca.crt"
+    toss_mtls_cert_path: str = "certs/todayhottopic_public.crt"
+    toss_mtls_key_path: str = "certs/todayhottopic_private.key"
     toss_app_id: str = "today-hot-topic"
-    toss_promotion_code: str = ""  # 앱인토스 콘솔에서 발급받은 프로모션 코드 (출시 전 입력)
+    toss_promotion_code: str = ""  # 앱인토스 콘솔에서 발급받은 프로모션 코드
 
     # Auth (서버 세션용 JWT — Toss accessToken과 별개)
     jwt_secret: str

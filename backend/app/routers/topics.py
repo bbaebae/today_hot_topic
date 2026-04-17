@@ -19,7 +19,7 @@ async def list_topics(
 ):
     client = db()
 
-    _SELECT = "id, title, category, image_url, view_count, rank, created_at, polls(id, option_a_text, option_b_text)"
+    _SELECT = "id, title, category, image_url, view_count, rank, created_at"
 
     if category:
         res = (
@@ -51,10 +51,22 @@ async def list_topics(
         )
         topics = res.data or []
 
+    if not topics:
+        return TopicsResponse(topics=[])
+
+    # polls 별도 쿼리
+    topic_ids = [row["id"] for row in topics]
+    polls_res = (
+        client.table("polls")
+        .select("id, topic_id, option_a_text, option_b_text")
+        .in_("topic_id", topic_ids)
+        .execute()
+    )
+    polls_map = {p["topic_id"]: p for p in (polls_res.data or [])}
+
     items = []
     for row in topics:
-        poll_list = row.pop("polls", None) or []
-        poll = poll_list[0] if poll_list else {}
+        poll = polls_map.get(row["id"], {})
         items.append(TopicListItem(
             **row,
             poll_id=poll.get("id", ""),

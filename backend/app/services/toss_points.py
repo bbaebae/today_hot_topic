@@ -20,7 +20,7 @@ _RESULT_URL = f"{_BASE}/api-partner/v1/apps-in-toss/promotion/execution-result"
 
 
 def _build_ssl_context() -> ssl.SSLContext:
-    ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH, cafile=settings.toss_mtls_ca_path)
+    ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
     ctx.load_cert_chain(
         certfile=settings.toss_mtls_cert_path,
         keyfile=settings.toss_mtls_key_path,

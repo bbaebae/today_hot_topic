@@ -299,6 +299,10 @@ class NaverNewsRankingCrawler:
         ("love",    "https://news.naver.com/main/ranking/popularDay.naver?sid1=106"),
     ]
 
+    # 카테고리별 필수 키워드 (최소 1개 이상 매칭 필요)
+    # society는 키워드 없이 와도 허용 (일반 사회 기사)
+    _STRICT_CATEGORIES: set[str] = {"economy", "sports", "love"}
+
     async def fetch(self, client: httpx.AsyncClient) -> list[CrawledPost]:
         posts: list[CrawledPost] = []
         for category, url in self._URLS:
@@ -312,10 +316,20 @@ class NaverNewsRankingCrawler:
             seen: set[str] = set()
             count = 0
 
-            for a in soup.select("div.rankingnews_box a.list_title"):
+            # 여러 셀렉터 시도 (naver HTML 구조 변경 대응)
+            candidates = soup.select(
+                "div.rankingnews_box a.list_title, "
+                "ul.rankingnews_list a, "
+                "div.ranking_list a.nclicks, "
+                "ol.list_ranking a.article"
+            )
+
+            for a in candidates:
                 href = a.get("href", "")
                 title = a.get_text(strip=True)
                 if not title or len(title) < 5:
+                    continue
+                if "news.naver.com" not in href and not href.startswith("/"):
                     continue
 
                 match = re.search(r"article/(\d+/\d+)", href)
@@ -327,13 +341,27 @@ class NaverNewsRankingCrawler:
                 if not href.startswith("http"):
                     href = "https://news.naver.com" + href
 
+                # 키워드 기반으로 실제 카테고리 검증
+                # economy/sports/love는 키워드가 반드시 일치해야 함
+                # society는 키워드 불일치해도 포함 (가장 일반적인 카테고리)
+                guessed = _guess_category_from_title(title)
+                if guessed == category:
+                    assigned = category  # type: ignore[assignment]
+                elif guessed != "story":
+                    assigned = guessed  # 다른 카테고리 키워드 매칭 → 재분류
+                elif category == "society":
+                    assigned = "society"  # society 페이지 기사는 키워드 없어도 허용
+                else:
+                    # economy/sports/love 페이지인데 키워드 없음 → society로 fallback
+                    assigned = "society"  # type: ignore[assignment]
+
                 posts.append(CrawledPost(
                     source="naver_news",
                     external_id=ext_id,
                     title=title,
                     body="",
                     url=href,
-                    category=category,  # type: ignore[arg-type]
+                    category=assigned,
                 ))
                 count += 1
                 if count >= 10:
@@ -384,16 +412,24 @@ async def crawl_all() -> list[CrawledPost]:
 # ---------------------------------------------------------------------------
 
 _ECONOMY_KEYWORDS = re.compile(
-    r"주식|코스피|나스닥|비트코인|환율|금리|부동산|아파트|ETF|펀드|채권|달러|경제|물가|증시|코인|투자|적금|통장", re.IGNORECASE
+    r"주식|코스피|코스닥|나스닥|비트코인|이더리움|환율|금리|부동산|아파트|ETF|펀드|채권|달러|원화|"
+    r"경제|물가|증시|코인|투자|적금|통장|배당|증권|반도체|수출|수입|무역|관세|기업|삼성전자|SK하이닉스|"
+    r"현대차|LG|취업|고용|실업|임금|연봉|월급|세금|기준금리|한국은행|Fed|연준|인플레|스태그플레이션", re.IGNORECASE
 )
 _SOCIETY_KEYWORDS = re.compile(
-    r"정치|대통령|국회|선거|사건|사고|범죄|경찰|법원|외교|전쟁|군사|정부|판결|시위|파업", re.IGNORECASE
+    r"정치|대통령|국회|선거|사건|사고|범죄|경찰|법원|외교|전쟁|군사|정부|판결|시위|파업|"
+    r"검찰|수사|기소|구속|체포|살인|폭행|성범죄|마약|재판|헌법|헌재|탄핵|위헌|집회|"
+    r"이민|이주|난민|인권|복지|의료|보건|코로나|감염|질병|사망|화재|사망|홍수|지진|재해", re.IGNORECASE
 )
 _SPORTS_KEYWORDS = re.compile(
-    r"손흥민|이강인|류현진|박지성|야구|축구|농구|배구|골프|올림픽|월드컵|KBO|EPL|NBA|스포츠|득점|우승", re.IGNORECASE
+    r"손흥민|이강인|류현진|박지성|김민재|황희찬|이정후|오타니|야구|축구|농구|배구|골프|올림픽|"
+    r"월드컵|KBO|EPL|NBA|NFL|MLB|스포츠|득점|우승|MVP|리그|챔피언|토트넘|맨유|PSG|레알|바르셀로나|"
+    r"대한민국 대표|국가대표|감독|코치|선발|홈런|골|경기|시즌|플레이오프", re.IGNORECASE
 )
 _LOVE_KEYWORDS = re.compile(
-    r"연예인|아이돌|배우|가수|드라마|영화|열애|결별|폭로|스캔들|엔터테인먼트|데뷔|팬미팅|콘서트|시상식|뮤직비디오|OST|컴백|활동중단|은퇴|소속사", re.IGNORECASE
+    r"연예인|아이돌|배우|가수|드라마|영화|열애|결별|폭로|스캔들|엔터테인먼트|데뷔|팬미팅|콘서트|"
+    r"시상식|뮤직비디오|OST|컴백|활동중단|은퇴|소속사|BTS|방탄|블랙핑크|뉴진스|아이브|르세라핌|"
+    r"에스파|NCT|엑소|트와이스|SM|YG|JYP|하이브|연기|수상|촬영|팬덤|팬|K팝|K-pop", re.IGNORECASE
 )
 
 

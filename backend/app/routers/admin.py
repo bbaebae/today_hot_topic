@@ -139,3 +139,38 @@ async def backfill_bodies(
 
     background_tasks.add_task(_run)
     return {"ok": True, "message": f"본문 백필 시작 (최대 50개)"}
+
+
+@router.post("/fix-categories")
+async def fix_categories(x_admin_key: str | None = Header(None)):
+    """뉴스 토픽의 카테고리를 키워드 기반으로 재분류합니다.
+    story 카테고리는 건드리지 않고, 뉴스(society/economy/sports/love) 기사만 대상으로 합니다."""
+    _verify(x_admin_key)
+    from ..database import db
+    from ..services.crawler import _guess_category_from_title
+
+    client = db()
+    # 뉴스 카테고리 토픽만 조회
+    res = client.table("topics").select("id, title, category").in_(
+        "category", ["society", "economy", "sports", "love"]
+    ).execute()
+    rows = res.data or []
+
+    fixed = 0
+    for row in rows:
+        guessed = _guess_category_from_title(row["title"])
+        if guessed == "story":
+            # 키워드 없음 → society로 fallback (뉴스 기사)
+            new_cat = "society"
+        else:
+            new_cat = guessed
+
+        if new_cat != row["category"]:
+            client.table("topics").update({"category": new_cat}).eq("id", row["id"]).execute()
+            fixed += 1
+
+    # 랭킹 재계산
+    from ..services.ranking import recompute_ranks
+    await recompute_ranks()
+
+    return {"ok": True, "fixed": fixed, "total": len(rows)}

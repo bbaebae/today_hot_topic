@@ -650,8 +650,8 @@ class MlbparkCrawler:
 # ---------------------------------------------------------------------------
 
 class DcinsideCrawler:
-    # 이슈 갤러리 - 각종 이슈가 올라오는 갤러리
-    _URL = "https://gall.dcinside.com/board/lists/?id=hit&sort_type=N&search_head=&page=1"
+    # DC 베스트 갤러리 - 실시간 인기 게시물
+    _URL = "https://gall.dcinside.com/board/lists/?id=dcbest"
     _BASE = "https://gall.dcinside.com"
 
     async def fetch(self, client: httpx.AsyncClient) -> list[CrawledPost]:
@@ -789,12 +789,8 @@ async def crawl_all() -> list[CrawledPost]:
     """
     crawlers = [
         PannCrawler(),
-        TheqooCrawler(),
-        InstizCrawler(),
         TodayHumorCrawler(),
-        GaeddipCrawler(),
         BobaedreamCrawler(),
-        MlbparkCrawler(),
         DcinsideCrawler(),
     ]
     async with httpx.AsyncClient(follow_redirects=True) as client:

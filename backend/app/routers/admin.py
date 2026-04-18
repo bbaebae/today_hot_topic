@@ -29,19 +29,46 @@ def _verify(x_admin_key: str | None) -> None:
 async def debug_crawl(x_admin_key: str | None = Header(None)):
     """크롤러 결과를 DB 저장 없이 즉시 반환합니다 (디버깅용)."""
     _verify(x_admin_key)
-    from ..services.crawler import crawl_all
+    import asyncio
+    from ..services.crawler import (
+        PannCrawler, TheqooCrawler, InstizCrawler, TodayHumorCrawler,
+        GaeddipCrawler, BobaedreamCrawler, MlbparkCrawler, DcinsideCrawler,
+    )
     from ..services.news_crawler import crawl_news
-    community, news = await __import__("asyncio").gather(crawl_all(), crawl_news())
+    import httpx
+
+    crawlers = [
+        ("pann", PannCrawler()),
+        ("theqoo", TheqooCrawler()),
+        ("instiz", InstizCrawler()),
+        ("todayhumor", TodayHumorCrawler()),
+        ("gaeddip", GaeddipCrawler()),
+        ("bobaedream", BobaedreamCrawler()),
+        ("mlbpark", MlbparkCrawler()),
+        ("dcinside", DcinsideCrawler()),
+    ]
+
+    async with httpx.AsyncClient(follow_redirects=True) as client:
+        results = await asyncio.gather(
+            *[c.fetch(client) for _, c in crawlers],
+            return_exceptions=True,
+        )
+
+    breakdown = {}
+    for (name, _), result in zip(crawlers, results):
+        if isinstance(result, Exception):
+            breakdown[name] = {"count": 0, "error": str(result)}
+        else:
+            breakdown[name] = {"count": len(result), "sample": result[0].title[:40] if result else None}
+
+    news = await crawl_news()
+    news_by_cat: dict[str, int] = {}
+    for p in news:
+        news_by_cat[p.category] = news_by_cat.get(p.category, 0) + 1
+
     return {
-        "community": [
-            {"source": p.source, "title": p.title[:50], "url": p.url, "body_len": len(p.body or ""), "view_count": p.view_count}
-            for p in community[:5]
-        ],
-        "news": [
-            {"source": p.source, "category": p.category, "title": p.title[:50], "url": p.url, "body_len": len(p.body or "")}
-            for p in news[:5]
-        ],
-        "community_total": len(community),
+        "community_breakdown": breakdown,
+        "news_by_category": news_by_cat,
         "news_total": len(news),
     }
 

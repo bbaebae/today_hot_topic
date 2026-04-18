@@ -25,6 +25,27 @@ def _verify(x_admin_key: str | None) -> None:
         raise HTTPException(status_code=403, detail="Forbidden")
 
 
+@router.get("/debug-crawl")
+async def debug_crawl(x_admin_key: str | None = Header(None)):
+    """크롤러 결과를 DB 저장 없이 즉시 반환합니다 (디버깅용)."""
+    _verify(x_admin_key)
+    from ..services.crawler import crawl_all
+    from ..services.news_crawler import crawl_news
+    community, news = await __import__("asyncio").gather(crawl_all(), crawl_news())
+    return {
+        "community": [
+            {"source": p.source, "title": p.title[:50], "url": p.url, "body_len": len(p.body or ""), "view_count": p.view_count}
+            for p in community[:5]
+        ],
+        "news": [
+            {"source": p.source, "category": p.category, "title": p.title[:50], "url": p.url, "body_len": len(p.body or "")}
+            for p in news[:5]
+        ],
+        "community_total": len(community),
+        "news_total": len(news),
+    }
+
+
 @router.post("/ingest")
 async def trigger_ingest(
     background_tasks: BackgroundTasks,

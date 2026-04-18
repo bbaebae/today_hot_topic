@@ -82,7 +82,7 @@ async def run_ingestion() -> dict[str, int]:
                 "external_id": post.external_id,
                 "source_url": post.url,
                 "image_url": post.image_url,
-                "view_count": post.view_count,
+                "view_count": min(post.view_count, 2_000_000_000),
                 "rank": 9999,
                 "body": post.body,
                 "summary_json": json.dumps(summary_lines, ensure_ascii=False),

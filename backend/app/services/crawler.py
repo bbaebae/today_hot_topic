@@ -869,10 +869,11 @@ def _parse_count(text: str) -> int:
     text = text.replace(",", "").strip()
     if "만" in text:
         try:
-            return int(float(text.replace("만", "")) * 10000)
+            return min(int(float(text.replace("만", "")) * 10000), 100_000_000)
         except ValueError:
             return 0
     try:
-        return int(re.sub(r"[^\d]", "", text) or "0")
+        val = int(re.sub(r"[^\d]", "", text) or "0")
+        return min(val, 100_000_000)
     except ValueError:
         return 0

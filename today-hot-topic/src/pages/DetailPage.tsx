@@ -152,7 +152,7 @@ export default function DetailPage() {
             {/* 썸네일 */}
             {topic.imageUrl && (
               <div className={styles.imageWrap}>
-                <img src={topic.imageUrl} alt={topic.title} className={styles.image} />
+                <img src={topic.imageUrl} alt={topic.title} className={styles.image} referrerPolicy="no-referrer" />
               </div>
             )}
 

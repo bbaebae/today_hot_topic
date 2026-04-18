@@ -48,18 +48,41 @@ async def debug_crawl(x_admin_key: str | None = Header(None)):
         ("dcinside", DcinsideCrawler()),
     ]
 
+    from ..services.crawler import _HEADERS, _TIMEOUT
+
+    async def _test_crawl(name, crawler, client):
+        try:
+            # HTTP 응답 먼저 테스트
+            url = getattr(crawler, '_URL', None)
+            http_status = None
+            if url:
+                try:
+                    r = await client.get(url, headers=_HEADERS, timeout=_TIMEOUT)
+                    http_status = r.status_code
+                except Exception as e:
+                    http_status = str(e)[:50]
+            posts = await crawler.fetch(client)
+            return name, posts, http_status
+        except Exception as e:
+            return name, [], str(e)[:100]
+
     async with httpx.AsyncClient(follow_redirects=True) as client:
         results = await asyncio.gather(
-            *[c.fetch(client) for _, c in crawlers],
+            *[_test_crawl(name, c, client) for name, c in crawlers],
             return_exceptions=True,
         )
 
     breakdown = {}
-    for (name, _), result in zip(crawlers, results):
+    for result in results:
         if isinstance(result, Exception):
-            breakdown[name] = {"count": 0, "error": str(result)}
+            breakdown["error"] = str(result)
         else:
-            breakdown[name] = {"count": len(result), "sample": result[0].title[:40] if result else None}
+            name, posts, http_status = result
+            breakdown[name] = {
+                "count": len(posts),
+                "http_status": http_status,
+                "sample": posts[0].title[:40] if posts else None,
+            }
 
     news = await crawl_news()
     news_by_cat: dict[str, int] = {}

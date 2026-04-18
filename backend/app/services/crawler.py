@@ -667,9 +667,9 @@ class DcinsideCrawler:
         seen: set[str] = set()
 
         rows = (
-            soup.select("table.gall_list tbody tr.ub-content")
-            or soup.select("tbody#dgn_tbody tr.ub-content")
-            or soup.select("tbody tr.ub-content")
+            soup.select("table.gall_list tbody tr.ub-content:not(.notice)")
+            or soup.select("tbody#dgn_tbody tr.ub-content:not(.notice)")
+            or soup.select("tbody tr.ub-content:not(.notice)")
         )
 
         for row in rows:

@@ -106,13 +106,26 @@ async def backfill_bodies(
             if not url:
                 return
             source = row.get("source", "naver_news")
-            # source_url 기반으로 source 추정
-            if "pann.nate" in url:
-                source = "pann"
-            elif "ruliweb" in url:
-                source = "ruliweb"
-            else:
-                source = "naver_news"
+            # source 컬럼이 있으면 그대로 사용, 없으면 source_url로 추정
+            if not source or source == "naver_news":
+                if "pann.nate" in url:
+                    source = "pann"
+                elif "theqoo.net" in url:
+                    source = "theqoo"
+                elif "instiz.net" in url:
+                    source = "instiz"
+                elif "todayhumor.co.kr" in url:
+                    source = "todayhumor"
+                elif "gaeddip.com" in url:
+                    source = "gaeddip"
+                elif "bobaedream.co.kr" in url:
+                    source = "bobaedream"
+                elif "mlbpark.com" in url:
+                    source = "mlbpark"
+                elif "dcinside.com" in url:
+                    source = "dcinside"
+                elif "news.naver.com" in url or "n.news.naver.com" in url:
+                    source = "naver_news"
 
             async with sem:
                 try:

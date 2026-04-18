@@ -1,155 +1,218 @@
-"""뉴스 크롤러: 다음 실시간 이슈 키워드 → 네이버 뉴스 검색 API.
+"""뉴스 크롤러: knews-rss 기반 카테고리별 RSS 피드.
+
+https://github.com/akngs/knews-rss 에서 선별한 피드를 사용합니다.
 
 흐름:
-  1. 다음 실시간 이슈 페이지 스크래핑 → 트렌딩 키워드 상위 10개
-  2. 각 키워드로 네이버 뉴스 검색 API 호출 → 대표 기사 1개
-  3. CrawledPost(category="news") 로 반환
+  1. 카테고리별 RSS 피드 병렬 fetch
+  2. XML 파싱 → 최신 기사 추출
+  3. 중복 제거 후 카테고리당 상위 10개 반환
+  4. 본문 fetch → CrawledPost 반환
 """
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import re
-import urllib.parse
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 
 import httpx
 from bs4 import BeautifulSoup
 
-from .crawler import CrawledPost, _HEADERS, _TIMEOUT
-
-_DAUM_REALTIME_URL = "https://www.daum.net/"
-_NAVER_NEWS_API = "https://openapi.naver.com/v1/search/news.json"
+from .crawler import CrawledPost, _HEADERS, _TIMEOUT, _fetch_page
 
 
-async def _fetch_daum_trending(client: httpx.AsyncClient) -> list[str]:
-    """다음 메인에서 실시간 이슈 키워드를 추출합니다."""
+# ---------------------------------------------------------------------------
+# 카테고리별 RSS 피드 목록 (knews-rss 선별)
+# 다양한 시각 확보를 위해 카테고리당 3~4개 언론사 혼합
+# ---------------------------------------------------------------------------
+
+_RSS_FEEDS: dict[str, list[tuple[str, str]]] = {
+    "society": [
+        ("경향신문", "https://www.khan.co.kr/rss/rssdata/society_news.xml"),
+        ("한겨레", "https://www.hani.co.kr/rss/society/"),
+        ("뉴시스", "https://newsis.com/RSS/society.xml"),
+        ("동아일보", "https://rss.donga.com/national.xml"),
+        ("조선일보", "https://www.chosun.com/arc/outboundfeeds/rss/category/national/?outputType=xml"),
+    ],
+    "economy": [
+        ("경향신문", "https://www.khan.co.kr/rss/rssdata/economy_news.xml"),
+        ("한겨레", "https://www.hani.co.kr/rss/economy/"),
+        ("동아일보", "https://rss.donga.com/economy.xml"),
+        ("조선일보", "https://www.chosun.com/arc/outboundfeeds/rss/category/economy/?outputType=xml"),
+        ("뉴시스", "https://newsis.com/RSS/economy.xml"),
+    ],
+    "sports": [
+        ("경향신문", "http://www.khan.co.kr/rss/rssdata/kh_sports.xml"),
+        ("동아일보", "https://rss.donga.com/sports.xml"),
+        ("뉴시스", "https://newsis.com/RSS/sports.xml"),
+        ("조선일보", "https://www.chosun.com/arc/outboundfeeds/rss/category/sports/?outputType=xml"),
+        ("한겨레", "https://www.hani.co.kr/rss/sports/"),
+    ],
+    "love": [  # 연예
+        ("경향신문", "https://www.khan.co.kr/rss/rssdata/kh_entertainment.xml"),
+        ("서울신문", "https://www.seoul.co.kr/xml/rss/rss_entertainment.xml"),
+        ("뉴시스", "https://newsis.com/RSS/entertain.xml"),
+        ("세계일보", "http://www.segye.com/Articles/RSSList/segye_entertainment.xml"),
+        ("천지일보", "https://cdn.newscj.com/rss/gns_S1N15.xml"),
+    ],
+}
+
+# 카테고리당 최종 반환할 기사 수
+_MAX_PER_CATEGORY = 10
+
+
+def _parse_pubdate(text: str) -> datetime:
+    """RSS pubDate 문자열을 UTC datetime으로 변환합니다."""
+    text = text.strip()
     try:
-        resp = await client.get(_DAUM_REALTIME_URL, headers=_HEADERS, timeout=_TIMEOUT)
+        # RFC 822 (Mon, 01 Jan 2024 00:00:00 +0900)
+        return parsedate_to_datetime(text).astimezone(timezone.utc)
+    except Exception:
+        pass
+    try:
+        # ISO 8601 (2024-01-01T00:00:00+09:00)
+        return datetime.fromisoformat(text).astimezone(timezone.utc)
+    except Exception:
+        pass
+    return datetime.min.replace(tzinfo=timezone.utc)
+
+
+def _make_ext_id(publisher: str, url: str, title: str) -> str:
+    """중복 방지용 외부 ID를 생성합니다."""
+    # URL 기반으로 숫자 ID 추출 시도
+    match = re.search(r"/(\d{5,})", url)
+    if match:
+        return f"{publisher}_{match.group(1)}"
+    # URL 해시 사용
+    return f"{publisher}_{hashlib.md5(url.encode()).hexdigest()[:16]}"
+
+
+async def _fetch_rss(
+    client: httpx.AsyncClient,
+    publisher: str,
+    url: str,
+    category: str,
+) -> list[CrawledPost]:
+    """단일 RSS 피드를 fetch하고 CrawledPost 리스트로 반환합니다."""
+    try:
+        resp = await client.get(url, headers=_HEADERS, timeout=_TIMEOUT)
         resp.raise_for_status()
-    except httpx.HTTPError:
+    except Exception:
         return []
 
-    soup = BeautifulSoup(resp.text, "lxml")
-    keywords: list[str] = []
-
-    # 다음 실시간 이슈 섹션
-    for el in soup.select(
-        "div.realtime_part a, ol.list_realtime a, ul.list_issue a, "
-        "div#mArticle a.link_txt, div.wrap_issue a"
-    ):
-        text = el.get_text(strip=True)
-        # 순위 번호 제거 (예: "1위 카리나")
-        text = re.sub(r"^\d+\s*위?\s*", "", text).strip()
-        if text and len(text) >= 2 and text not in keywords:
-            keywords.append(text)
-        if len(keywords) >= 10:
-            break
-
-    return keywords
-
-
-async def _search_naver_news(
-    client: httpx.AsyncClient,
-    keyword: str,
-    naver_client_id: str,
-    naver_client_secret: str,
-) -> CrawledPost | None:
-    """네이버 뉴스 검색 API로 키워드 관련 대표 기사를 가져옵니다."""
-    params = {
-        "query": keyword,
-        "display": 3,
-        "sort": "date",
-    }
-    headers = {
-        **_HEADERS,
-        "X-Naver-Client-Id": naver_client_id,
-        "X-Naver-Client-Secret": naver_client_secret,
-    }
     try:
-        resp = await client.get(
-            _NAVER_NEWS_API,
-            params=params,
-            headers=headers,
-            timeout=_TIMEOUT,
-        )
-        resp.raise_for_status()
-    except httpx.HTTPError:
-        return None
+        soup = BeautifulSoup(resp.content, "lxml-xml")
+    except Exception:
+        try:
+            soup = BeautifulSoup(resp.text, "lxml")
+        except Exception:
+            return []
 
-    data = resp.json()
-    items = data.get("items", [])
-    if not items:
-        return None
+    posts: list[CrawledPost] = []
+    for item in soup.find_all("item"):
+        title_el = item.find("title")
+        link_el = item.find("link")
+        desc_el = item.find("description")
+        pub_el = item.find("pubDate") or item.find("pubdate")
 
-    # 가장 최신 기사 사용
-    item = items[0]
-    title = _strip_html(item.get("title", keyword))
-    description = _strip_html(item.get("description", ""))
-    naver_link = item.get("link", "")
-    original_link = item.get("originallink", "")
-    link = original_link or naver_link          # 사용자에게 보여줄 원본 링크
-    # 본문 fetch는 naver 링크 우선 (우리 selectors가 naver 구조에 맞음)
-    fetch_url = naver_link if "naver.com" in naver_link else link
+        title = title_el.get_text(strip=True) if title_el else ""
+        # CDATA 또는 HTML 태그 제거
+        title = re.sub(r"<[^>]+>", "", title).strip()
+        if not title or len(title) < 5:
+            continue
 
-    # 외부 ID: URL에서 추출하거나 title 해시 사용
-    ext_id = re.sub(r"[^\w]", "", link)[-40:] or re.sub(r"[^\w]", "", title)[:40]
+        # <link> 태그는 lxml-xml에서 next_sibling 방식으로 가져와야 할 때가 있음
+        link = ""
+        if link_el:
+            link = link_el.get_text(strip=True) or link_el.get("href", "")
+        if not link or not link.startswith("http"):
+            continue
 
-    from .crawler import _guess_category_from_title
-    category = _guess_category_from_title(title)
+        desc = ""
+        if desc_el:
+            desc = re.sub(r"<[^>]+>", "", desc_el.get_text(strip=True))[:500]
 
-    return CrawledPost(
-        source="naver_news",
-        external_id=ext_id,
-        title=title,
-        body=description,
-        url=link,
-        category=category,
-        view_count=0,
-        fetch_url=fetch_url,
-    )
+        pub_dt = _parse_pubdate(pub_el.get_text(strip=True)) if pub_el else datetime.min.replace(tzinfo=timezone.utc)
 
+        ext_id = _make_ext_id(publisher, link, title)
 
-def _strip_html(text: str) -> str:
-    """네이버 API가 반환하는 <b> 등 HTML 태그를 제거합니다."""
-    return re.sub(r"<[^>]+>", "", text).strip()
+        posts.append(CrawledPost(
+            source="rss_news",
+            external_id=ext_id,
+            title=title,
+            body=desc,
+            url=link,
+            category=category,  # type: ignore[arg-type]
+            view_count=0,
+            # pubDate를 view_count 대신 정렬 기준으로 활용하기 위해 임시 저장
+            fetch_url=link,
+        ))
+        # pubDate를 메타데이터로 저장 (정렬용)
+        posts[-1].__dict__["_pubdate"] = pub_dt
+
+    return posts
 
 
 async def crawl_news() -> list[CrawledPost]:
-    """다음 트렌딩 키워드 기반 뉴스 기사를 크롤링합니다."""
-    from ..config import settings
-    from .crawler import _fetch_body, _HEADERS, _TIMEOUT
-
+    """knews-rss 기반 카테고리별 뉴스 기사를 크롤링합니다."""
     async with httpx.AsyncClient(follow_redirects=True) as client:
-        keywords = await _fetch_daum_trending(client)
-        if not keywords:
-            return []
+        # 모든 피드 병렬 fetch
+        tasks = []
+        meta: list[tuple[str, str]] = []  # (category, publisher)
+        for category, feeds in _RSS_FEEDS.items():
+            for publisher, url in feeds:
+                tasks.append(_fetch_rss(client, publisher, url, category))
+                meta.append((category, publisher))
 
-        tasks = [
-            _search_naver_news(
-                client,
-                kw,
-                settings.naver_client_id,
-                settings.naver_client_secret,
-            )
-            for kw in keywords
-        ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        posts = [r for r in results if isinstance(r, CrawledPost)]
+
+        # 카테고리별로 수집
+        cat_posts: dict[str, list[CrawledPost]] = {cat: [] for cat in _RSS_FEEDS}
+        for result in results:
+            if not isinstance(result, list):
+                continue
+            for post in result:
+                cat_posts[post.category].append(post)
+
+        # 카테고리별 중복 제거 + 최신순 정렬 + 상위 N개
+        final_posts: list[CrawledPost] = []
+        for category, posts in cat_posts.items():
+            seen_ids: set[str] = set()
+            seen_titles: set[str] = set()
+            unique: list[CrawledPost] = []
+            for p in posts:
+                if p.external_id in seen_ids:
+                    continue
+                # 제목 유사 중복 방지 (앞 20자 기준)
+                title_key = re.sub(r"\s+", "", p.title[:20])
+                if title_key in seen_titles:
+                    continue
+                seen_ids.add(p.external_id)
+                seen_titles.add(title_key)
+                unique.append(p)
+
+            # pubDate 기준 최신순 정렬
+            unique.sort(
+                key=lambda p: p.__dict__.get("_pubdate", datetime.min.replace(tzinfo=timezone.utc)),
+                reverse=True,
+            )
+            final_posts.extend(unique[:_MAX_PER_CATEGORY])
 
         # 본문 fetch (동시 5개 제한)
         sem = asyncio.Semaphore(5)
 
         async def fill_body(post: CrawledPost) -> None:
-            if post.body and len(post.body) > 100 and post.image_url:
+            # description이 충분히 길면 본문으로 사용
+            if post.body and len(post.body) > 150:
                 return
             async with sem:
-                from .crawler import _fetch_page
-                target_url = post.fetch_url or post.url
-                body, image_url = await _fetch_page(client, target_url, "naver_news")
+                body, image_url = await _fetch_page(client, post.url, "rss_news")
                 if body:
                     post.body = body
                 if image_url and not post.image_url:
                     post.image_url = image_url
 
-        await asyncio.gather(*[fill_body(p) for p in posts], return_exceptions=True)
+        await asyncio.gather(*[fill_body(p) for p in final_posts], return_exceptions=True)
 
-    return posts
+    return final_posts

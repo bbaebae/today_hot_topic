@@ -1,11 +1,13 @@
 """커뮤니티/뉴스 크롤러.
 
 소스:
-  - 썰(story):   네이트판 베스트, 루리웹 베스트, 펨코 베스트
+  - 썰(story):   네이트판 베스트, 더쿠, 인스티즈, 오늘의유머, 개드립, 보배드림, MLB파크, 디시인사이드
   - 사회(society): 네이버 뉴스 사회 랭킹
   - 경제(economy): 네이버 뉴스 경제 랭킹
   - 스포츠(sports): 네이버 뉴스 스포츠 랭킹
   - 연애(love):   네이버 뉴스 연예 랭킹
+
+각 커뮤니티 크롤러는 해당 시간대의 조회수 상위 5개 게시물을 반환합니다.
 """
 from __future__ import annotations
 
@@ -34,6 +36,7 @@ _HEADERS = {
         "Chrome/120.0.0.0 Safari/537.36"
     ),
     "Accept-Language": "ko-KR,ko;q=0.9",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
 }
 _TIMEOUT = httpx.Timeout(15.0)
 _BODY_TIMEOUT = httpx.Timeout(10.0)
@@ -74,9 +77,21 @@ async def _fetch_page(
     selectors: list[str] = []
     if source == "pann":
         selectors = ["div.se-main-container", "div.post_cont", "div#contentArea"]
-    elif source == "ruliweb":
-        selectors = ["div.view_content", "div.board_content"]
-    elif source == "naver_news":
+    elif source == "theqoo":
+        selectors = ["div.xe_content", "div.read_body", "div.document_content"]
+    elif source == "instiz":
+        selectors = ["div.memo_content", "div#memo_content_s", "div.view_content"]
+    elif source == "todayhumor":
+        selectors = ["div.viewContent", "div#viewer", "div.view_body"]
+    elif source == "gaeddip":
+        selectors = ["div.view-content", "div#post-content", "div.article-body"]
+    elif source == "bobaedream":
+        selectors = ["div.bobaContents", "div.view_cont", "div#content"]
+    elif source == "mlbpark":
+        selectors = ["div.viewContent", "div#viewContent", "div.view_body"]
+    elif source == "dcinside":
+        selectors = ["div.write_div", "div#container", "div.gallview_contents"]
+    elif source in ("naver_news", "rss_news"):
         selectors = [
             # 네이버 뉴스 최신 (n.news.naver.com)
             "div#dic_area",
@@ -146,7 +161,7 @@ class PannCrawler:
         try:
             resp = await client.get(self._BASE + "/", headers=_HEADERS, timeout=_TIMEOUT)
             resp.raise_for_status()
-        except httpx.HTTPError:
+        except Exception:
             return []
 
         soup = BeautifulSoup(resp.text, "lxml")
@@ -172,6 +187,14 @@ class PannCrawler:
             if not title or len(title) < 3:
                 continue
 
+            # 조회수 파싱 (부모 li에서 탐색)
+            parent = a.find_parent("li") or a.find_parent("div")
+            view_count = 0
+            if parent:
+                view_el = parent.select_one("span.count, em.count, span.view")
+                if view_el:
+                    view_count = _parse_count(view_el.get_text(strip=True))
+
             posts.append(CrawledPost(
                 source="pann",
                 external_id=ext_id,
@@ -179,55 +202,518 @@ class PannCrawler:
                 body="",
                 url=href,
                 category="story",
+                view_count=view_count,
             ))
-            if len(posts) >= 15:
+            if len(posts) >= 20:
                 break
 
-        return posts
+        posts.sort(key=lambda p: p.view_count, reverse=True)
+        return posts[:5]
 
 
 # ---------------------------------------------------------------------------
-# 루리웹 유머 베스트 (썰)
+# 더쿠 핫게시판 (썰)
 # ---------------------------------------------------------------------------
 
-class RuliwebCrawler:
-    _URL = "https://bbs.ruliweb.com/best/board/300143"
-    _BASE = "https://bbs.ruliweb.com"
+class TheqooCrawler:
+    _URL = "https://theqoo.net/hot"
+    _BASE = "https://theqoo.net"
 
     async def fetch(self, client: httpx.AsyncClient) -> list[CrawledPost]:
         try:
-            resp = await client.get(self._URL, headers=_HEADERS, timeout=_TIMEOUT)
+            headers = {**_HEADERS, "Referer": "https://theqoo.net/"}
+            resp = await client.get(self._URL, headers=headers, timeout=_TIMEOUT)
             resp.raise_for_status()
-        except httpx.HTTPError:
+        except Exception:
             return []
 
         soup = BeautifulSoup(resp.text, "lxml")
         posts: list[CrawledPost] = []
+        seen: set[str] = set()
 
-        for a in soup.select("table.board_list_table tr td.subject a.deco"):
-            href = a.get("href", "")
+        # 더쿠는 XE 기반 게시판을 사용
+        rows = (
+            soup.select("table.tbl_board tbody tr")
+            or soup.select("ul.list_articles li")
+            or soup.select("div.boardContents li")
+        )
+
+        for row in rows:
+            # 제목 링크
+            a = (
+                row.select_one("td.title a, td.subject a, a.title")
+                or row.select_one("a[href*='/hot/']")
+                or row.select_one("span.title a, a")
+            )
+            if not a:
+                continue
+
             title = a.get_text(strip=True)
             if not title or len(title) < 3:
                 continue
 
-            match = re.search(r"/read/(\d+)", href)
-            ext_id = match.group(1) if match else re.sub(r"[^\w]", "", href)[-20:]
-
+            href = a.get("href", "")
+            if not href:
+                continue
             if not href.startswith("http"):
                 href = self._BASE + href
 
+            # ext_id 추출
+            match = re.search(r"/(\d+)(?:\?|$|#)", href) or re.search(r"no=(\d+)", href)
+            if not match:
+                continue
+            ext_id = f"theqoo_{match.group(1)}"
+            if ext_id in seen:
+                continue
+            seen.add(ext_id)
+
+            # 조회수
+            view_el = (
+                row.select_one("td.view_cnt, td.hits, td.count, span.cnt")
+                or row.select_one("em.view, span.view, .view_count")
+            )
+            view_count = _parse_count(view_el.get_text(strip=True)) if view_el else 0
+
             posts.append(CrawledPost(
-                source="ruliweb",
+                source="theqoo",
                 external_id=ext_id,
                 title=title,
                 body="",
                 url=href,
                 category="story",
+                view_count=view_count,
             ))
-            if len(posts) >= 15:
-                break
 
-        return posts
+        posts.sort(key=lambda p: p.view_count, reverse=True)
+        return posts[:5]
+
+
+# ---------------------------------------------------------------------------
+# 인스티즈 (썰)
+# ---------------------------------------------------------------------------
+
+class InstizCrawler:
+    _URL = "https://www.instiz.net/pt"
+    _BASE = "https://www.instiz.net"
+
+    async def fetch(self, client: httpx.AsyncClient) -> list[CrawledPost]:
+        try:
+            resp = await client.get(self._URL, headers=_HEADERS, timeout=_TIMEOUT)
+            resp.raise_for_status()
+        except Exception:
+            return []
+
+        soup = BeautifulSoup(resp.text, "lxml")
+        posts: list[CrawledPost] = []
+        seen: set[str] = set()
+
+        # 인스티즈 게시판 구조
+        rows = (
+            soup.select("table.board_list tr[class*='list']")
+            or soup.select("ul.board_list li")
+            or soup.select("table tbody tr")
+        )
+
+        for row in rows:
+            a = (
+                row.select_one("td.listsubject a, td.subject a")
+                or row.select_one("a[href*='no=']")
+                or row.select_one("span.subject a, a.subject")
+            )
+            if not a:
+                continue
+
+            title = a.get_text(strip=True)
+            if not title or len(title) < 3:
+                continue
+
+            href = a.get("href", "")
+            if not href:
+                continue
+            if not href.startswith("http"):
+                href = self._BASE + href
+
+            match = re.search(r"no=(\d+)", href) or re.search(r"/pt/(\d+)", href)
+            if not match:
+                continue
+            ext_id = f"instiz_{match.group(1)}"
+            if ext_id in seen:
+                continue
+            seen.add(ext_id)
+
+            # 조회수
+            view_el = row.select_one("td.view, td.listview, td.hit, span.view")
+            view_count = _parse_count(view_el.get_text(strip=True)) if view_el else 0
+
+            posts.append(CrawledPost(
+                source="instiz",
+                external_id=ext_id,
+                title=title,
+                body="",
+                url=href,
+                category="story",
+                view_count=view_count,
+            ))
+
+        posts.sort(key=lambda p: p.view_count, reverse=True)
+        return posts[:5]
+
+
+# ---------------------------------------------------------------------------
+# 오늘의유머 베스트오브베스트 (썰)
+# ---------------------------------------------------------------------------
+
+class TodayHumorCrawler:
+    _URL = "https://www.todayhumor.co.kr/board/list.php?table=bestofbest"
+    _BASE = "https://www.todayhumor.co.kr"
+
+    async def fetch(self, client: httpx.AsyncClient) -> list[CrawledPost]:
+        try:
+            resp = await client.get(self._URL, headers=_HEADERS, timeout=_TIMEOUT)
+            resp.raise_for_status()
+        except Exception:
+            return []
+
+        soup = BeautifulSoup(resp.text, "lxml")
+        posts: list[CrawledPost] = []
+        seen: set[str] = set()
+
+        rows = (
+            soup.select("table.table_list tr.view")
+            or soup.select("table.table_list tr")
+            or soup.select("tbody tr")
+        )
+
+        for row in rows:
+            a = (
+                row.select_one("td.subject a, a.subject_link")
+                or row.select_one("td.title a")
+                or row.select_one("a[href*='view.php']")
+            )
+            if not a:
+                continue
+
+            title = a.get_text(strip=True)
+            if not title or len(title) < 3:
+                continue
+
+            href = a.get("href", "")
+            if not href:
+                continue
+            if not href.startswith("http"):
+                href = self._BASE + "/" + href.lstrip("/")
+
+            match = re.search(r"no=(\d+)", href)
+            if not match:
+                continue
+            ext_id = f"todayhumor_{match.group(1)}"
+            if ext_id in seen:
+                continue
+            seen.add(ext_id)
+
+            # 조회수
+            view_el = row.select_one("td.view, td.hits, td.count, td:nth-child(5)")
+            view_count = _parse_count(view_el.get_text(strip=True)) if view_el else 0
+
+            posts.append(CrawledPost(
+                source="todayhumor",
+                external_id=ext_id,
+                title=title,
+                body="",
+                url=href,
+                category="story",
+                view_count=view_count,
+            ))
+
+        posts.sort(key=lambda p: p.view_count, reverse=True)
+        return posts[:5]
+
+
+# ---------------------------------------------------------------------------
+# 개드립 베스트 (썰)
+# ---------------------------------------------------------------------------
+
+class GaeddipCrawler:
+    _URL = "https://www.gaeddip.com/bbs/board.php?bo_table=best"
+    _BASE = "https://www.gaeddip.com"
+
+    async def fetch(self, client: httpx.AsyncClient) -> list[CrawledPost]:
+        try:
+            resp = await client.get(self._URL, headers=_HEADERS, timeout=_TIMEOUT)
+            resp.raise_for_status()
+        except Exception:
+            return []
+
+        soup = BeautifulSoup(resp.text, "lxml")
+        posts: list[CrawledPost] = []
+        seen: set[str] = set()
+
+        rows = (
+            soup.select("section.bo_list ul li, div.bo_list ul li")
+            or soup.select("table.board_list tr")
+            or soup.select("ul.board-list li")
+            or soup.select("tbody tr")
+        )
+
+        for row in rows:
+            a = (
+                row.select_one("a.bo_tit, a.title, strong.bo_tit a")
+                or row.select_one("td.td_subject a")
+                or row.select_one("a[href*='wr_id=']")
+            )
+            if not a:
+                continue
+
+            title = a.get_text(strip=True)
+            if not title or len(title) < 3:
+                continue
+
+            href = a.get("href", "")
+            if not href:
+                continue
+            if not href.startswith("http"):
+                href = self._BASE + href
+
+            match = re.search(r"wr_id=(\d+)", href)
+            if not match:
+                continue
+            ext_id = f"gaeddip_{match.group(1)}"
+            if ext_id in seen:
+                continue
+            seen.add(ext_id)
+
+            # 조회수
+            view_el = row.select_one("td.td_num2, span.view, .hit, td.hits")
+            view_count = _parse_count(view_el.get_text(strip=True)) if view_el else 0
+
+            posts.append(CrawledPost(
+                source="gaeddip",
+                external_id=ext_id,
+                title=title,
+                body="",
+                url=href,
+                category="story",
+                view_count=view_count,
+            ))
+
+        posts.sort(key=lambda p: p.view_count, reverse=True)
+        return posts[:5]
+
+
+# ---------------------------------------------------------------------------
+# 보배드림 자유게시판 (썰)
+# ---------------------------------------------------------------------------
+
+class BobaedreamCrawler:
+    # 조회수 높은 순으로 정렬
+    _URL = "https://www.bobaedream.co.kr/list?code=freeb&sort=recom&page=1"
+    _BASE = "https://www.bobaedream.co.kr"
+
+    async def fetch(self, client: httpx.AsyncClient) -> list[CrawledPost]:
+        try:
+            resp = await client.get(self._URL, headers=_HEADERS, timeout=_TIMEOUT)
+            resp.raise_for_status()
+        except Exception:
+            return []
+
+        soup = BeautifulSoup(resp.text, "lxml")
+        posts: list[CrawledPost] = []
+        seen: set[str] = set()
+
+        rows = (
+            soup.select("ul.basiclist li")
+            or soup.select("table.board-list tr")
+            or soup.select("tbody tr")
+        )
+
+        for row in rows:
+            a = (
+                row.select_one("a.bm-header-link, a.subject, strong a")
+                or row.select_one("td.subject a, td.title a")
+                or row.select_one("a[href*='No=']")
+            )
+            if not a:
+                continue
+
+            title = a.get_text(strip=True)
+            if not title or len(title) < 3:
+                continue
+
+            href = a.get("href", "")
+            if not href:
+                continue
+            if not href.startswith("http"):
+                href = self._BASE + href
+
+            match = re.search(r"No=(\d+)", href) or re.search(r"/(\d+)$", href)
+            if not match:
+                continue
+            ext_id = f"bobaedream_{match.group(1)}"
+            if ext_id in seen:
+                continue
+            seen.add(ext_id)
+
+            # 조회수
+            view_el = row.select_one("em.count, span.cnt, td.count, .hit_cnt")
+            view_count = _parse_count(view_el.get_text(strip=True)) if view_el else 0
+
+            posts.append(CrawledPost(
+                source="bobaedream",
+                external_id=ext_id,
+                title=title,
+                body="",
+                url=href,
+                category="story",
+                view_count=view_count,
+            ))
+
+        posts.sort(key=lambda p: p.view_count, reverse=True)
+        return posts[:5]
+
+
+# ---------------------------------------------------------------------------
+# MLB파크 자유게시판 (썰)
+# ---------------------------------------------------------------------------
+
+class MlbparkCrawler:
+    _URL = "https://bbs.mlbpark.com/mlbpark/?m=bbs_list&bbs=mlbpark_free"
+    _BASE = "https://bbs.mlbpark.com"
+
+    async def fetch(self, client: httpx.AsyncClient) -> list[CrawledPost]:
+        try:
+            resp = await client.get(self._URL, headers=_HEADERS, timeout=_TIMEOUT)
+            resp.raise_for_status()
+        except Exception:
+            return []
+
+        soup = BeautifulSoup(resp.text, "lxml")
+        posts: list[CrawledPost] = []
+        seen: set[str] = set()
+
+        rows = (
+            soup.select("table.bbs_list tr.bbs-list")
+            or soup.select("table.list-table tbody tr")
+            or soup.select("tbody tr")
+        )
+
+        for row in rows:
+            a = (
+                row.select_one("td.title a, td.subject a")
+                or row.select_one("a[href*='bbs_view']")
+                or row.select_one("a[href*='idx=']")
+            )
+            if not a:
+                continue
+
+            title = a.get_text(strip=True)
+            if not title or len(title) < 3:
+                continue
+
+            href = a.get("href", "")
+            if not href:
+                continue
+            if not href.startswith("http"):
+                href = self._BASE + href
+
+            match = (
+                re.search(r"idx=(\d+)", href)
+                or re.search(r"id=(\d+)", href)
+                or re.search(r"/(\d+)$", href)
+            )
+            if not match:
+                continue
+            ext_id = f"mlbpark_{match.group(1)}"
+            if ext_id in seen:
+                continue
+            seen.add(ext_id)
+
+            # 조회수
+            view_el = row.select_one("td.view, td.count, td.hits, span.view")
+            view_count = _parse_count(view_el.get_text(strip=True)) if view_el else 0
+
+            posts.append(CrawledPost(
+                source="mlbpark",
+                external_id=ext_id,
+                title=title,
+                body="",
+                url=href,
+                category="story",
+                view_count=view_count,
+            ))
+
+        posts.sort(key=lambda p: p.view_count, reverse=True)
+        return posts[:5]
+
+
+# ---------------------------------------------------------------------------
+# 디시인사이드 이슈 갤러리 (썰)
+# ---------------------------------------------------------------------------
+
+class DcinsideCrawler:
+    # 이슈 갤러리 - 각종 이슈가 올라오는 갤러리
+    _URL = "https://gall.dcinside.com/board/lists/?id=hit&sort_type=N&search_head=&page=1"
+    _BASE = "https://gall.dcinside.com"
+
+    async def fetch(self, client: httpx.AsyncClient) -> list[CrawledPost]:
+        try:
+            headers = {**_HEADERS, "Referer": "https://www.dcinside.com/"}
+            resp = await client.get(self._URL, headers=headers, timeout=_TIMEOUT)
+            resp.raise_for_status()
+        except Exception:
+            return []
+
+        soup = BeautifulSoup(resp.text, "lxml")
+        posts: list[CrawledPost] = []
+        seen: set[str] = set()
+
+        rows = (
+            soup.select("table.gall_list tbody tr.ub-content")
+            or soup.select("tbody#dgn_tbody tr.ub-content")
+            or soup.select("tbody tr.ub-content")
+        )
+
+        for row in rows:
+            a = (
+                row.select_one("td.gall_tit a:not(.reply_numbox)")
+                or row.select_one("td.subject a")
+            )
+            if not a:
+                continue
+
+            title = a.get_text(strip=True)
+            if not title or len(title) < 3:
+                continue
+
+            href = a.get("href", "")
+            if not href:
+                continue
+            if not href.startswith("http"):
+                href = self._BASE + href
+
+            match = re.search(r"no=(\d+)", href)
+            if not match:
+                continue
+            ext_id = f"dcinside_{match.group(1)}"
+            if ext_id in seen:
+                continue
+            seen.add(ext_id)
+
+            # 조회수
+            view_el = row.select_one("td.gall_count, td.count, span.view_cnt")
+            view_count = _parse_count(view_el.get_text(strip=True)) if view_el else 0
+
+            posts.append(CrawledPost(
+                source="dcinside",
+                external_id=ext_id,
+                title=title,
+                body="",
+                url=href,
+                category="story",
+                view_count=view_count,
+            ))
+
+        posts.sort(key=lambda p: p.view_count, reverse=True)
+        return posts[:5]
 
 
 # ---------------------------------------------------------------------------
@@ -290,93 +776,27 @@ class FmkoreaCrawler:
 # 네이버 뉴스 랭킹 (사회 / 경제 / 스포츠 / 연예)
 # ---------------------------------------------------------------------------
 
-class NaverNewsRankingCrawler:
-    # sid1: 101=경제, 102=사회, 106=연예, 107=스포츠
-    _URLS: list[tuple[str, str]] = [
-        ("society", "https://news.naver.com/main/ranking/popularDay.naver?sid1=102"),
-        ("economy", "https://news.naver.com/main/ranking/popularDay.naver?sid1=101"),
-        ("sports",  "https://news.naver.com/main/ranking/popularDay.naver?sid1=107"),
-        ("love",    "https://news.naver.com/main/ranking/popularDay.naver?sid1=106"),
-    ]
-
-    # 카테고리별 필수 키워드 (최소 1개 이상 매칭 필요)
-    # society는 키워드 없이 와도 허용 (일반 사회 기사)
-    _STRICT_CATEGORIES: set[str] = {"economy", "sports", "love"}
-
-    async def fetch(self, client: httpx.AsyncClient) -> list[CrawledPost]:
-        posts: list[CrawledPost] = []
-        for category, url in self._URLS:
-            try:
-                resp = await client.get(url, headers=_HEADERS, timeout=_TIMEOUT)
-                resp.raise_for_status()
-            except httpx.HTTPError:
-                continue
-
-            soup = BeautifulSoup(resp.text, "lxml")
-            seen: set[str] = set()
-            count = 0
-
-            # 여러 셀렉터 시도 (naver HTML 구조 변경 대응)
-            candidates = soup.select(
-                "div.rankingnews_box a.list_title, "
-                "ul.rankingnews_list a, "
-                "div.ranking_list a.nclicks, "
-                "ol.list_ranking a.article"
-            )
-
-            for a in candidates:
-                href = a.get("href", "")
-                title = a.get_text(strip=True)
-                if not title or len(title) < 5:
-                    continue
-                if "news.naver.com" not in href and not href.startswith("/"):
-                    continue
-
-                match = re.search(r"article/(\d+/\d+)", href)
-                ext_id = match.group(1).replace("/", "_") if match else re.sub(r"[^\w]", "", href)[-30:]
-                if ext_id in seen:
-                    continue
-                seen.add(ext_id)
-
-                if not href.startswith("http"):
-                    href = "https://news.naver.com" + href
-
-                # 키워드 기반으로 실제 카테고리 검증
-                # economy/sports/love는 키워드가 반드시 일치해야 함
-                # society는 키워드 불일치해도 포함 (가장 일반적인 카테고리)
-                guessed = _guess_category_from_title(title)
-                if guessed == category:
-                    assigned = category  # type: ignore[assignment]
-                elif guessed != "story":
-                    assigned = guessed  # 다른 카테고리 키워드 매칭 → 재분류
-                elif category == "society":
-                    assigned = "society"  # society 페이지 기사는 키워드 없어도 허용
-                else:
-                    # economy/sports/love 페이지인데 키워드 없음 → society로 fallback
-                    assigned = "society"  # type: ignore[assignment]
-
-                posts.append(CrawledPost(
-                    source="naver_news",
-                    external_id=ext_id,
-                    title=title,
-                    body="",
-                    url=href,
-                    category=assigned,
-                ))
-                count += 1
-                if count >= 10:
-                    break
-
-        return posts
-
-
 # ---------------------------------------------------------------------------
-# 전체 크롤링 실행
+# 전체 크롤링 실행 (커뮤니티 썰만 — 뉴스는 news_crawler.py에서 RSS로 처리)
 # ---------------------------------------------------------------------------
 
 async def crawl_all() -> list[CrawledPost]:
-    # FmkoreaCrawler는 Playwright 의존으로 메모리 과다 사용 → 제외
-    crawlers = [PannCrawler(), RuliwebCrawler(), NaverNewsRankingCrawler()]
+    """커뮤니티 크롤러를 병렬 실행하고 결과를 반환합니다.
+
+    각 커뮤니티 크롤러는 해당 시간대 조회수 기준 상위 5개를 반환합니다.
+    전체 랭킹은 recompute_ranks()에서 조회수 × 최신성 점수로 계산됩니다.
+    뉴스(사회/경제/스포츠/연예)는 news_crawler.crawl_news()가 담당합니다.
+    """
+    crawlers = [
+        PannCrawler(),
+        TheqooCrawler(),
+        InstizCrawler(),
+        TodayHumorCrawler(),
+        GaeddipCrawler(),
+        BobaedreamCrawler(),
+        MlbparkCrawler(),
+        DcinsideCrawler(),
+    ]
     async with httpx.AsyncClient(follow_redirects=True) as client:
         results = await asyncio.gather(
             *[c.fetch(client) for c in crawlers],

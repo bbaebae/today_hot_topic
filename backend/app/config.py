@@ -32,10 +32,6 @@ class Settings(BaseSettings):
     share_reward_amount: int = 5
     daily_point_limit: int = 100
 
-    # Naver Search API
-    naver_client_id: str
-    naver_client_secret: str
-
     # Crawler
     crawler_interval_minutes: int = 30
     crawler_max_topics_per_source: int = 20

@@ -93,6 +93,7 @@ async def _fetch_page(
         selectors = ["div.view-content", "div#post-content", "div.article-body"]
     elif source == "bobaedream":
         selectors = [
+            "div.bodyCont",          # 실제 본문 컨테이너 (itemprop=articleBody)
             "div.bobaContents",
             "div.boba-content",
             "div.view_cont",

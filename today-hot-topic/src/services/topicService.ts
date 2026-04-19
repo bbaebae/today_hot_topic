@@ -29,6 +29,8 @@ export async function fetchTopicDetail(id: string): Promise<TopicDetail> {
       return {
         ...topic,
         sourceUrl: 'https://pann.nate.com',
+        body: '',
+        imageUrls: topic.imageUrl ? [topic.imageUrl] : [],
         summary: [
           '첫 번째 AI 요약 문장입니다. 이슈의 핵심 내용을 간결하게 담았어요.',
           '두 번째 AI 요약 문장입니다. 상황의 배경과 맥락을 설명해요.',

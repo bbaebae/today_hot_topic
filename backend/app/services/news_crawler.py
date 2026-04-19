@@ -235,15 +235,24 @@ async def crawl_news() -> list[CrawledPost]:
 
         async def fill_body(post: CrawledPost) -> None:
             # 본문과 이미지 모두 있으면 skip
-            if post.image_url and post.body and len(post.body) > 150:
+            if post.image_url and post.body and len(post.body) > 150 and post.image_urls:
                 return
             # 본문은 충분하지만 이미지가 없거나, 본문이 짧은 경우 → 페이지 fetch
             async with sem:
-                body, image_url = await _fetch_page(client, post.url, "rss_news")
+                body, fetched_images = await _fetch_page(client, post.url, "rss_news")
                 if body and (not post.body or len(post.body) <= 150):
                     post.body = body
-                if image_url and not post.image_url:
-                    post.image_url = image_url
+                if fetched_images:
+                    if not post.image_url:
+                        post.image_url = fetched_images[0]
+                    # 전체 이미지 목록 구성
+                    all_imgs: list[str] = []
+                    if post.image_url:
+                        all_imgs.append(post.image_url)
+                    for img in fetched_images:
+                        if img not in all_imgs:
+                            all_imgs.append(img)
+                    post.image_urls = all_imgs[:10]
 
         await asyncio.gather(*[fill_body(p) for p in final_posts], return_exceptions=True)
 

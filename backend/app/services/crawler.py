@@ -73,18 +73,41 @@ def _extract_og_image(soup: BeautifulSoup) -> str | None:
     return None
 
 
+def _is_content_image(url: str) -> bool:
+    """콘텐츠 이미지인지 판별합니다 (아이콘/로고/광고 제외)."""
+    low = url.lower()
+    exclude = ("logo", "icon", "banner", "ad_", "/ads/", "advertisement",
+               "spinner", "loading", "pixel", "tracking", "beacon",
+               "1x1", "spacer", "blank")
+    return not any(p in low for p in exclude)
+
+
+def _collect_images(el: object, found: list[str], max_count: int = 10) -> None:
+    """HTML 요소에서 이미지 URL을 추출하여 found 리스트에 추가합니다."""
+    for img in el.find_all("img"):  # type: ignore[union-attr]
+        if len(found) >= max_count:
+            break
+        src = img.get("src", "") or img.get("data-src", "") or img.get("data-lazy", "")
+        norm = _normalize_url(src) if src else None
+        if norm and norm not in found and _is_content_image(norm):
+            found.append(norm)
+
+
 async def _fetch_page(
     client: httpx.AsyncClient, url: str, source: str
-) -> tuple[str, str | None]:
-    """소스별 상세 페이지에서 (본문, 이미지 URL)을 추출합니다."""
+) -> tuple[str, list[str]]:
+    """소스별 상세 페이지에서 (본문, 이미지 URL 리스트)를 추출합니다."""
     try:
         resp = await client.get(url, headers=_HEADERS, timeout=_BODY_TIMEOUT)
         resp.raise_for_status()
     except Exception:
-        return "", None
+        return "", []
 
     soup = BeautifulSoup(resp.text, "lxml")
-    image_url = _extract_og_image(soup)
+    og_image = _extract_og_image(soup)
+    found_images: list[str] = []
+    if og_image:
+        found_images.append(og_image)
 
     selectors: list[str] = []
     if source == "pann":
@@ -149,36 +172,23 @@ async def _fetch_page(
             "div.view-content",
         ]
 
-    content_el = None
     for sel in selectors:
         el = soup.select_one(sel)
         if el:
             text = el.get_text(separator="\n", strip=True)
             if len(text) > 50:
-                content_el = el
-                # content 내부 첫 이미지도 image_url fallback으로 사용
-                if not image_url:
-                    img_tag = el.find("img")
-                    if img_tag:
-                        src = img_tag.get("src", "") or img_tag.get("data-src", "")
-                        if src and src.startswith("http"):
-                            image_url = src
-                return text[:3000], image_url
+                _collect_images(el, found_images)
+                return text[:3000], found_images[:10]
 
     # 마지막 fallback: <article> 태그
     el = soup.find("article")
     if el:
         text = el.get_text(separator="\n", strip=True)
         if len(text) > 50:
-            if not image_url:
-                img_tag = el.find("img")
-                if img_tag:
-                    src = img_tag.get("src", "") or img_tag.get("data-src", "")
-                    if src and src.startswith("http"):
-                        image_url = src
-            return text[:3000], image_url
+            _collect_images(el, found_images)
+            return text[:3000], found_images[:10]
 
-    return "", image_url
+    return "", found_images[:10]
 
 
 # 하위호환 래퍼 (news_crawler.py에서 사용)
@@ -196,6 +206,7 @@ class CrawledPost:
     url: str
     category: Category
     image_url: str | None = None
+    image_urls: list[str] = field(default_factory=list)
     view_count: int = 0
     fetch_url: str = ""  # 본문 fetch용 URL (기본값: url과 동일)
 
@@ -254,9 +265,6 @@ class PannCrawler:
             # 썸네일 이미지 (있는 글만)
             img_el = li.select_one("div.thumb img")
             image_url = img_el.get("src") if img_el else None
-            # thumb.pann.com 프록시 → 더 큰 해상도로 교체
-            if image_url and "thumb.pann.com" in image_url:
-                image_url = re.sub(r"thumb\.pann\.com/[^/]+/", "thumb.pann.com/tc_400x300/", image_url)
 
             # 댓글 수를 인기도 대리 지표로 사용
             reple_el = li.select_one("span.reple-num")
@@ -871,15 +879,24 @@ async def crawl_all() -> list[CrawledPost]:
         sem = asyncio.Semaphore(5)
 
         async def fill_body(post: CrawledPost) -> None:
-            if post.body and post.image_url:
+            if post.body and post.image_urls:
                 return
             async with sem:
                 target_url = post.fetch_url or post.url
-                body, image_url = await _fetch_page(client, target_url, post.source)
+                body, fetched_images = await _fetch_page(client, target_url, post.source)
                 if body:
                     post.body = body
-                if image_url and not post.image_url and post.source != "pann":
-                    post.image_url = image_url
+                # 대표 이미지: pann은 목록 페이지 썸네일 우선
+                if fetched_images and not post.image_url and post.source != "pann":
+                    post.image_url = fetched_images[0]
+                # 전체 이미지 목록 구성 (대표 이미지 먼저, 중복 제거)
+                all_imgs: list[str] = []
+                if post.image_url:
+                    all_imgs.append(post.image_url)
+                for img in fetched_images:
+                    if img not in all_imgs:
+                        all_imgs.append(img)
+                post.image_urls = all_imgs[:10]
 
         await asyncio.gather(*[fill_body(p) for p in posts], return_exceptions=True)
 

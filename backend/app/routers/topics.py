@@ -99,6 +99,15 @@ async def get_topic(topic_id: str):
     except (json.JSONDecodeError, TypeError):
         summary = [raw_summary] if raw_summary else []
 
+    # image_urls_json 파싱
+    raw_image_urls = row.get("image_urls_json") or "[]"
+    try:
+        image_urls: list[str] = json.loads(raw_image_urls) if isinstance(raw_image_urls, str) else []
+        if not isinstance(image_urls, list):
+            image_urls = []
+    except (json.JSONDecodeError, TypeError):
+        image_urls = []
+
     poll_res = (
         client.table("polls")
         .select("*")
@@ -119,6 +128,7 @@ async def get_topic(topic_id: str):
         title=row["title"],
         category=row["category"],
         image_url=row.get("image_url"),
+        image_urls=image_urls,
         view_count=row["view_count"],
         rank=row["rank"],
         created_at=row["created_at"],

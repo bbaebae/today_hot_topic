@@ -141,10 +141,18 @@ export default function DetailPage() {
               <h2 className={styles.title}>{topic.title}</h2>
             </div>
 
-            {/* 썸네일 */}
-            {topic.imageUrl && (
-              <div className={styles.imageWrap}>
-                <img src={topic.imageUrl} alt={topic.title} className={styles.image} referrerPolicy="no-referrer" />
+            {/* 이미지 목록 */}
+            {(topic.imageUrls?.length > 0 || topic.imageUrl) && (
+              <div className={styles.imageList}>
+                {(topic.imageUrls?.length > 0 ? topic.imageUrls : [topic.imageUrl]).filter(Boolean).map((url, i) => (
+                  <img
+                    key={i}
+                    src={url!}
+                    alt={`${topic.title} 이미지 ${i + 1}`}
+                    className={styles.image}
+                    referrerPolicy="no-referrer"
+                  />
+                ))}
               </div>
             )}
 

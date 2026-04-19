@@ -46,6 +46,7 @@ class TopicDetail(TopicBase):
     body: str = ""
     summary: list[str]
     poll: PollSchema
+    image_urls: list[str] = []
 
 
 class TopicsResponse(BaseModel):

@@ -31,25 +31,50 @@ _DEFAULT_POLL_FALLBACK: dict[str, tuple[str, str]] = {
 }
 
 
-async def summarize(title: str, body: str, category: str = "story") -> tuple[list[str], tuple[str, str]]:
+async def summarize(
+    title: str,
+    body: str,
+    category: str = "story",
+    image_urls: list[str] | None = None,
+) -> tuple[list[str], tuple[str, str]]:
     """
     게시물 제목과 본문을 받아 (3줄 요약, 투표 선택지 2개) 튜플을 반환합니다.
+    본문이 없고 이미지가 있으면 GPT-4o vision으로 이미지를 분석합니다.
     실패 시 fallback을 반환합니다.
     """
-    content_part = f"\n\n본문:\n{body[:3000]}" if body.strip() else ""
-    prompt = f"제목: {title}{content_part}"
+    use_vision = not body.strip() and bool(image_urls)
 
     try:
-        resp = await _client.chat.completions.create(
-            model=settings.openai_model,
-            messages=[
-                {"role": "system", "content": _SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.4,
-            max_tokens=400,
-            response_format={"type": "json_object"},
-        )
+        if use_vision:
+            # 이미지 분석 모드
+            content: list[dict] = [
+                {"type": "text", "text": f"제목: {title}\n\n이미지를 보고 내용을 파악해 주세요:"},
+            ]
+            for img_url in (image_urls or [])[:5]:
+                content.append({"type": "image_url", "image_url": {"url": img_url}})
+            resp = await _client.chat.completions.create(
+                model=settings.openai_model,
+                messages=[
+                    {"role": "system", "content": _SYSTEM_PROMPT},
+                    {"role": "user", "content": content},
+                ],
+                temperature=0.4,
+                max_tokens=400,
+                response_format={"type": "json_object"},
+            )
+        else:
+            content_part = f"\n\n본문:\n{body[:3000]}" if body.strip() else ""
+            prompt = f"제목: {title}{content_part}"
+            resp = await _client.chat.completions.create(
+                model=settings.openai_model,
+                messages=[
+                    {"role": "system", "content": _SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.4,
+                max_tokens=400,
+                response_format={"type": "json_object"},
+            )
         raw = resp.choices[0].message.content or "{}"
         parsed = json.loads(raw)
 

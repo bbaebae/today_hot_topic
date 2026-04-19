@@ -26,6 +26,7 @@ export interface TopicDetail extends Topic {
   body: string;
   summary: string[];
   poll: Poll;
+  imageUrls?: string[];
 }
 
 export interface Poll {

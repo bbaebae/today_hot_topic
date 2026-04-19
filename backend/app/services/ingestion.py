@@ -23,15 +23,6 @@ from ..database import db
 from ..schemas.topic import Category
 
 
-_DEFAULT_POLL_OPTIONS: dict[Category, tuple[str, str]] = {
-    "story":   ("공감해요", "공감 안 해요"),
-    "society": ("사실이다", "과장된 것 같다"),
-    "economy": ("오를 것 같다", "내릴 것 같다"),
-    "sports":  ("잘할 것 같다", "못할 것 같다"),
-    "love":    ("이해해요", "이해 못하겠어요"),
-}
-
-
 async def run_ingestion() -> dict[str, int]:
     """전체 파이프라인을 실행하고 저장된 신규 토픽 수를 반환합니다."""
     community_posts, news_posts = await asyncio.gather(crawl_all(), crawl_news())
@@ -56,22 +47,22 @@ async def run_ingestion() -> dict[str, int]:
     if not new_posts:
         return {"crawled": len(posts), "new": 0}
 
-    # GPT-4o 요약 (최대 5개 동시 처리)
+    # GPT-4o 요약 + 투표 선택지 생성 (최대 5개 동시 처리)
     semaphore = asyncio.Semaphore(5)
 
-    async def summarize_with_limit(post: CrawledPost) -> list[str]:
+    async def summarize_with_limit(post: CrawledPost) -> tuple[list[str], tuple[str, str]]:
         async with semaphore:
-            return await summarize(post.title, post.body)
+            return await summarize(post.title, post.body, post.category)
 
-    summaries = await asyncio.gather(*[summarize_with_limit(p) for p in new_posts])
+    results = await asyncio.gather(*[summarize_with_limit(p) for p in new_posts])
 
     # Supabase 저장
     now = datetime.now(timezone.utc).isoformat()
-    for post, summary_lines in zip(new_posts, summaries):
+    for post, (summary_lines, poll_opts) in zip(new_posts, results):
         topic_id = str(uuid.uuid4())
         poll_id = str(uuid.uuid4())
 
-        opt_a, opt_b = _DEFAULT_POLL_OPTIONS.get(post.category, ("찬성", "반대"))
+        opt_a, opt_b = poll_opts
 
         client.table("topics").upsert(
             {

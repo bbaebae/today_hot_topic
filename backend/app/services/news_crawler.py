@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import html
 import re
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
@@ -117,8 +118,8 @@ async def _fetch_rss(
         pub_el = item.find("pubDate") or item.find("pubdate")
 
         title = title_el.get_text(strip=True) if title_el else ""
-        # CDATA 또는 HTML 태그 제거
-        title = re.sub(r"<[^>]+>", "", title).strip()
+        # CDATA 또는 HTML 태그 제거 + HTML 엔티티 디코딩
+        title = html.unescape(re.sub(r"<[^>]+>", "", title)).strip()
         if not title or len(title) < 5:
             continue
 
@@ -131,7 +132,8 @@ async def _fetch_rss(
 
         desc = ""
         if desc_el:
-            desc = re.sub(r"<[^>]+>", "", desc_el.get_text(strip=True))[:500]
+            raw_desc = desc_el.get_text(strip=True)
+            desc = html.unescape(re.sub(r"<[^>]+>", "", raw_desc))[:500]
 
         pub_dt = _parse_pubdate(pub_el.get_text(strip=True)) if pub_el else datetime.min.replace(tzinfo=timezone.utc)
 

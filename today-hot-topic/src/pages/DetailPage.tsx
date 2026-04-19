@@ -139,14 +139,6 @@ export default function DetailPage() {
             {/* 헤더 영역 */}
             <div className={styles.topicHeader}>
               <h2 className={styles.title}>{topic.title}</h2>
-              {topic.sourceUrl && (
-                <button
-                  className={styles.sourceLink}
-                  onClick={() => safeOpenUrl(topic.sourceUrl)}
-                >
-                  원문 보기 →
-                </button>
-              )}
             </div>
 
             {/* 썸네일 */}

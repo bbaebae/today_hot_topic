@@ -60,7 +60,7 @@ _RSS_FEEDS: dict[str, list[tuple[str, str]]] = {
 }
 
 # 카테고리당 최종 반환할 기사 수
-_MAX_PER_CATEGORY = 10
+_MAX_PER_CATEGORY = 20
 
 
 def _parse_pubdate(text: str) -> datetime:

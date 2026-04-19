@@ -263,7 +263,7 @@ class PannCrawler:
             ))
 
         posts.sort(key=lambda p: p.view_count, reverse=True)
-        return posts[:5]
+        return posts[:10]
 
 
 # ---------------------------------------------------------------------------
@@ -552,7 +552,7 @@ class GaeddipCrawler:
             ))
 
         posts.sort(key=lambda p: p.view_count, reverse=True)
-        return posts[:5]
+        return posts[:10]
 
 
 # ---------------------------------------------------------------------------
@@ -623,7 +623,7 @@ class BobaedreamCrawler:
             ))
 
         posts.sort(key=lambda p: p.view_count, reverse=True)
-        return posts[:5]
+        return posts[:10]
 
 
 # ---------------------------------------------------------------------------
@@ -768,7 +768,7 @@ class DcinsideCrawler:
             ))
 
         posts.sort(key=lambda p: p.view_count, reverse=True)
-        return posts[:5]
+        return posts[:10]
 
 
 # ---------------------------------------------------------------------------
@@ -869,7 +869,7 @@ async def crawl_all() -> list[CrawledPost]:
                 body, image_url = await _fetch_page(client, target_url, post.source)
                 if body:
                     post.body = body
-                if image_url and not post.image_url:
+                if image_url and not post.image_url and post.source != "pann":
                     post.image_url = image_url
 
         await asyncio.gather(*[fill_body(p) for p in posts], return_exceptions=True)

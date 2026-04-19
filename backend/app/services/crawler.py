@@ -721,37 +721,48 @@ class DcinsideCrawler:
         posts: list[CrawledPost] = []
         seen: set[str] = set()
 
+        # data-no 속성이 있는 실제 게시글 행만 선택 (공지·설문 제외)
         rows = (
-            soup.select("table.gall_list tbody tr.ub-content:not(.notice)")
-            or soup.select("tbody#dgn_tbody tr.ub-content:not(.notice)")
-            or soup.select("tbody tr.ub-content:not(.notice)")
+            soup.select("tr.us-post[data-no]")
+            or soup.select("tr[data-no]:not([data-type='icon_notice'])")
+            or soup.select("table.gall_list tbody tr[data-no]")
         )
 
         for row in rows:
-            a = (
-                row.select_one("td.gall_tit a:not(.reply_numbox)")
-                or row.select_one("td.subject a")
-            )
+            data_no = row.get("data-no", "")
+            if not data_no:
+                continue
+
+            a = row.select_one("td.gall_tit a, td.subject a")
             if not a:
                 continue
 
+            # 제목: <strong>[갤명]</strong> 텍스트 제거 후 추출
+            strong = a.find("strong")
+            if strong:
+                strong.decompose()
             title = a.get_text(strip=True)
             if not title or len(title) < 3:
                 continue
 
             href = a.get("href", "")
-            if not href:
-                continue
-            if not href.startswith("http"):
+            if href and not href.startswith("http"):
                 href = self._BASE + href
+            if not href:
+                href = f"{self._BASE}/board/view/?id=dcbest&no={data_no}"
 
-            match = re.search(r"no=(\d+)", href)
-            if not match:
-                continue
-            ext_id = f"dcinside_{match.group(1)}"
+            ext_id = f"dcinside_{data_no}"
             if ext_id in seen:
                 continue
             seen.add(ext_id)
+
+            # 썸네일 이미지 (.thumimg img)
+            img_el = row.select_one(".thumimg img")
+            image_url: str | None = None
+            if img_el:
+                src = img_el.get("src", "")
+                if src and src.startswith("http"):
+                    image_url = src
 
             # 조회수
             view_el = row.select_one("td.gall_count, td.count, span.view_cnt")
@@ -765,6 +776,7 @@ class DcinsideCrawler:
                 url=href,
                 category="story",
                 view_count=view_count,
+                image_url=image_url,
             ))
 
         posts.sort(key=lambda p: p.view_count, reverse=True)
@@ -846,6 +858,7 @@ async def crawl_all() -> list[CrawledPost]:
         PannCrawler(),
         BobaedreamCrawler(),
         DcinsideCrawler(),
+        TodayHumorCrawler(),
     ]
     async with httpx.AsyncClient(follow_redirects=True) as client:
         results = await asyncio.gather(

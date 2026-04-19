@@ -42,20 +42,32 @@ _TIMEOUT = httpx.Timeout(15.0)
 _BODY_TIMEOUT = httpx.Timeout(10.0)
 
 
+def _normalize_url(url: str) -> str | None:
+    """프로토콜 상대 URL(//)을 https://로 변환합니다."""
+    if not url:
+        return None
+    url = url.strip()
+    if url.startswith("//"):
+        return "https:" + url
+    if url.startswith("http"):
+        return url
+    return None
+
+
 def _extract_og_image(soup: BeautifulSoup) -> str | None:
     """OG 이미지 또는 첫 번째 기사 이미지 URL을 추출합니다."""
     # 1순위: og:image
     og = soup.find("meta", property="og:image")
     if og and og.get("content"):
-        url = og["content"].strip()
-        if url.startswith("http"):
+        url = _normalize_url(og["content"])
+        if url:
             return url
 
     # 2순위: twitter:image
     tw = soup.find("meta", attrs={"name": "twitter:image"})
     if tw and tw.get("content"):
-        url = tw["content"].strip()
-        if url.startswith("http"):
+        url = _normalize_url(tw["content"])
+        if url:
             return url
 
     return None
@@ -560,8 +572,8 @@ class GaeddipCrawler:
 # ---------------------------------------------------------------------------
 
 class BobaedreamCrawler:
-    # 조회수 높은 순으로 정렬
-    _URL = "https://www.bobaedream.co.kr/list?code=freeb&sort=recom&page=1"
+    # 주간 베스트 게시판
+    _URL = "https://www.bobaedream.co.kr/board/bulletin/list.php?code=best&vdate=w"
     _BASE = "https://www.bobaedream.co.kr"
 
     async def fetch(self, client: httpx.AsyncClient) -> list[CrawledPost]:
@@ -575,22 +587,11 @@ class BobaedreamCrawler:
         posts: list[CrawledPost] = []
         seen: set[str] = set()
 
-        rows = (
-            soup.select("ul.basiclist li")
-            or soup.select("table.board-list tr")
-            or soup.select("tbody tr")
-        )
+        # a.bsubject: 실제 게시글 제목 링크 (댓글 링크 제외)
+        anchors = soup.select("a.bsubject[href*='No=']")
 
-        for row in rows:
-            a = (
-                row.select_one("a.bm-header-link, a.subject, strong a")
-                or row.select_one("td.subject a, td.title a")
-                or row.select_one("a[href*='No=']")
-            )
-            if not a:
-                continue
-
-            title = a.get_text(strip=True)
+        for a in anchors:
+            title = a.get("title", "") or a.get_text(strip=True)
             if not title or len(title) < 3:
                 continue
 
@@ -600,7 +601,7 @@ class BobaedreamCrawler:
             if not href.startswith("http"):
                 href = self._BASE + href
 
-            match = re.search(r"No=(\d+)", href) or re.search(r"/(\d+)$", href)
+            match = re.search(r"No=(\d+)", href)
             if not match:
                 continue
             ext_id = f"bobaedream_{match.group(1)}"
@@ -608,21 +609,17 @@ class BobaedreamCrawler:
                 continue
             seen.add(ext_id)
 
-            # 조회수
-            view_el = row.select_one("em.count, span.cnt, td.count, .hit_cnt")
-            view_count = _parse_count(view_el.get_text(strip=True)) if view_el else 0
-
             posts.append(CrawledPost(
                 source="bobaedream",
                 external_id=ext_id,
                 title=title,
                 body="",
                 url=href,
+                fetch_url=href,
                 category="story",
-                view_count=view_count,
+                view_count=0,
             ))
 
-        posts.sort(key=lambda p: p.view_count, reverse=True)
         return posts[:10]
 
 
@@ -858,7 +855,6 @@ async def crawl_all() -> list[CrawledPost]:
         PannCrawler(),
         BobaedreamCrawler(),
         DcinsideCrawler(),
-        TodayHumorCrawler(),
     ]
     async with httpx.AsyncClient(follow_redirects=True) as client:
         results = await asyncio.gather(

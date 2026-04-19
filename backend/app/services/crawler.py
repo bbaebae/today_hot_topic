@@ -192,11 +192,18 @@ class CrawledPost:
 # ---------------------------------------------------------------------------
 
 class PannCrawler:
+    # 실시간 인기톡 AJAX 엔드포인트 (classId=0: 전체)
+    _URL = "https://pann.nate.com/talk/category/ClassList?classId=0&page=1"
     _BASE = "https://pann.nate.com"
 
     async def fetch(self, client: httpx.AsyncClient) -> list[CrawledPost]:
         try:
-            resp = await client.get(self._BASE + "/", headers=_HEADERS, timeout=_TIMEOUT)
+            headers = {
+                **_HEADERS,
+                "Referer": "https://pann.nate.com/talk",
+                "X-Requested-With": "XMLHttpRequest",
+            }
+            resp = await client.get(self._URL, headers=headers, timeout=_TIMEOUT)
             resp.raise_for_status()
         except Exception:
             return []
@@ -205,10 +212,13 @@ class PannCrawler:
         posts: list[CrawledPost] = []
         seen: set[str] = set()
 
-        for a in soup.select("div.bestTalkBox a[href*='/talk/']"):
-            href = a.get("href", "")
-            if "/channel/" in href or "#" in href:
+        for li in soup.select("ul.post_wrap li"):
+            # 제목 링크
+            dt_a = li.select_one("dt a[href*='/talk/']")
+            if not dt_a:
                 continue
+
+            href = dt_a.get("href", "")
             if not href.startswith("http"):
                 href = self._BASE + href
 
@@ -220,29 +230,36 @@ class PannCrawler:
                 continue
             seen.add(ext_id)
 
-            title = a.get_text(strip=True)
-            if not title or len(title) < 3:
+            title = dt_a.get("title", "") or dt_a.get_text(strip=True)
+            if not title or len(title) < 2:
                 continue
 
-            # 조회수 파싱 (부모 li에서 탐색)
-            parent = a.find_parent("li") or a.find_parent("div")
-            view_count = 0
-            if parent:
-                view_el = parent.select_one("span.count, em.count, span.view")
-                if view_el:
-                    view_count = _parse_count(view_el.get_text(strip=True))
+            # 본문 미리보기 (dd.txt)
+            txt_el = li.select_one("dd.txt a")
+            body = txt_el.get_text(strip=True) if txt_el else ""
+
+            # 썸네일 이미지 (있는 글만)
+            img_el = li.select_one("div.thumb img")
+            image_url = img_el.get("src") if img_el else None
+            # thumb.pann.com 프록시 → 더 큰 해상도로 교체
+            if image_url and "thumb.pann.com" in image_url:
+                image_url = re.sub(r"thumb\.pann\.com/[^/]+/", "thumb.pann.com/tc_400x300/", image_url)
+
+            # 댓글 수를 인기도 대리 지표로 사용
+            reple_el = li.select_one("span.reple-num")
+            reple_text = reple_el.get_text(strip=True).strip("()") if reple_el else "0"
+            comment_count = _parse_count(reple_text)
 
             posts.append(CrawledPost(
                 source="pann",
                 external_id=ext_id,
                 title=title,
-                body="",
+                body=body,
                 url=href,
                 category="story",
-                view_count=view_count,
+                image_url=image_url,
+                view_count=comment_count,  # 댓글 수 기준 정렬
             ))
-            if len(posts) >= 20:
-                break
 
         posts.sort(key=lambda p: p.view_count, reverse=True)
         return posts[:5]

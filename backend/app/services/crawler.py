@@ -76,7 +76,13 @@ async def _fetch_page(
 
     selectors: list[str] = []
     if source == "pann":
-        selectors = ["div.se-main-container", "div.post_cont", "div#contentArea"]
+        selectors = [
+            "div.se-main-container",   # Naver SmartEditor3
+            "div.post_cont",
+            "div#contentArea",
+            "div.view_content",
+            "div.talk_cont",
+        ]
     elif source == "theqoo":
         selectors = ["div.xe_content", "div.read_body", "div.document_content"]
     elif source == "instiz":
@@ -86,11 +92,22 @@ async def _fetch_page(
     elif source == "gaeddip":
         selectors = ["div.view-content", "div#post-content", "div.article-body"]
     elif source == "bobaedream":
-        selectors = ["div.bobaContents", "div.view_cont", "div#content"]
+        selectors = [
+            "div.bobaContents",
+            "div.boba-content",
+            "div.view_cont",
+            "div#content_area",
+            "div.post_content",
+        ]
     elif source == "mlbpark":
         selectors = ["div.viewContent", "div#viewContent", "div.view_body"]
     elif source == "dcinside":
-        selectors = ["div.write_div", "div#container", "div.gallview_contents"]
+        selectors = [
+            "div.write_div",
+            "div.gallview_contents",
+            "div#container div.write_div",
+            "div.inner.clear",
+        ]
     elif source in ("naver_news", "rss_news"):
         selectors = [
             # 네이버 뉴스 최신 (n.news.naver.com)
@@ -112,13 +129,27 @@ async def _fetch_page(
             "div#articleBody",
             "div.article_txt",
             "section.article-body",
+            # 언론사별 추가 패턴
+            "div#articleText",
+            "div.article_view",
+            "div#news_body_area",
+            "div.view-content",
         ]
 
+    content_el = None
     for sel in selectors:
         el = soup.select_one(sel)
         if el:
             text = el.get_text(separator="\n", strip=True)
             if len(text) > 50:
+                content_el = el
+                # content 내부 첫 이미지도 image_url fallback으로 사용
+                if not image_url:
+                    img_tag = el.find("img")
+                    if img_tag:
+                        src = img_tag.get("src", "") or img_tag.get("data-src", "")
+                        if src and src.startswith("http"):
+                            image_url = src
                 return text[:3000], image_url
 
     # 마지막 fallback: <article> 태그
@@ -126,6 +157,12 @@ async def _fetch_page(
     if el:
         text = el.get_text(separator="\n", strip=True)
         if len(text) > 50:
+            if not image_url:
+                img_tag = el.find("img")
+                if img_tag:
+                    src = img_tag.get("src", "") or img_tag.get("data-src", "")
+                    if src and src.startswith("http"):
+                        image_url = src
             return text[:3000], image_url
 
     return "", image_url
@@ -789,7 +826,6 @@ async def crawl_all() -> list[CrawledPost]:
     """
     crawlers = [
         PannCrawler(),
-        TodayHumorCrawler(),
         BobaedreamCrawler(),
         DcinsideCrawler(),
     ]

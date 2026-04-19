@@ -135,6 +135,35 @@ async def _fetch_rss(
 
         pub_dt = _parse_pubdate(pub_el.get_text(strip=True)) if pub_el else datetime.min.replace(tzinfo=timezone.utc)
 
+        # RSS 피드에서 이미지 추출 시도
+        # 1순위: <enclosure url="..." type="image/...">
+        image_url: str | None = None
+        enclosure = item.find("enclosure")
+        if enclosure:
+            enc_url = enclosure.get("url", "")
+            enc_type = enclosure.get("type", "")
+            if enc_url.startswith("http") and "image" in enc_type:
+                image_url = enc_url
+
+        # 2순위: <media:content> 또는 <media:thumbnail>
+        if not image_url:
+            for tag in ("media:content", "media:thumbnail", "content", "thumbnail"):
+                el = item.find(tag)
+                if el:
+                    img = el.get("url", "")
+                    if img.startswith("http"):
+                        image_url = img
+                        break
+
+        # 3순위: description HTML 내 첫 번째 <img src="...">
+        if not image_url and desc_el:
+            raw_html = str(desc_el)
+            img_match = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', raw_html)
+            if img_match:
+                img_src = img_match.group(1)
+                if img_src.startswith("http"):
+                    image_url = img_src
+
         ext_id = _make_ext_id(publisher, link, title)
 
         posts.append(CrawledPost(
@@ -145,7 +174,7 @@ async def _fetch_rss(
             url=link,
             category=category,  # type: ignore[arg-type]
             view_count=0,
-            # pubDate를 view_count 대신 정렬 기준으로 활용하기 위해 임시 저장
+            image_url=image_url,
             fetch_url=link,
         ))
         # pubDate를 메타데이터로 저장 (정렬용)
@@ -203,12 +232,13 @@ async def crawl_news() -> list[CrawledPost]:
         sem = asyncio.Semaphore(5)
 
         async def fill_body(post: CrawledPost) -> None:
-            # description이 충분히 길면 본문으로 사용
-            if post.body and len(post.body) > 150:
+            # 본문과 이미지 모두 있으면 skip
+            if post.image_url and post.body and len(post.body) > 150:
                 return
+            # 본문은 충분하지만 이미지가 없거나, 본문이 짧은 경우 → 페이지 fetch
             async with sem:
                 body, image_url = await _fetch_page(client, post.url, "rss_news")
-                if body:
+                if body and (not post.body or len(post.body) <= 150):
                     post.body = body
                 if image_url and not post.image_url:
                     post.image_url = image_url

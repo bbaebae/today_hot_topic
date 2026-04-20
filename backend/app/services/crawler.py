@@ -937,6 +937,9 @@ async def crawl_all() -> list[CrawledPost]:
                 for img in fetched_images:
                     _add_image(img, all_imgs)
                 post.image_urls = all_imgs[:10]
+                # 아이콘/로고 등 비콘텐츠 이미지가 image_url에 남아있으면 정리
+                if post.image_url and not _is_content_image(post.image_url):
+                    post.image_url = all_imgs[0] if all_imgs else None
 
         await asyncio.gather(*[fill_body(p) for p in posts], return_exceptions=True)
 

@@ -274,11 +274,13 @@ async def backfill_images(
             for img in fetched_images:
                 _add_image(img, all_imgs)
 
+            # 아이콘/로고 등 비콘텐츠 이미지가 image_url에 있으면 정리
+            final_image_url: str | None = image_url if (image_url and _is_content_image(image_url)) else (all_imgs[0] if all_imgs else None)
+
             update_data: dict = {
                 "image_urls_json": json.dumps(all_imgs[:10], ensure_ascii=False) if all_imgs else None,
+                "image_url": final_image_url,
             }
-            if image_url and image_url != row.get("image_url"):
-                update_data["image_url"] = image_url
 
             try:
                 client.table("topics").update(update_data).eq("id", row["id"]).execute()

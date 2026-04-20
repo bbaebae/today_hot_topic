@@ -188,6 +188,15 @@ async def _fetch_page(
             # 네이버 뉴스 구형
             "div._article_body_contents",
             "div#articleBodyContents",
+            # 언론사별 특정 선택자 (우선순위 높음)
+            "div.articleView",          # 뉴시스
+            "div.main_view",            # 동아일보
+            "div.art_body",             # 경향신문
+            "div#articleBody",          # 경향신문 (id 방식)
+            "div#mcontent",             # 세계일보
+            "div#content",              # 한겨레
+            "div.view_article",         # 서울신문
+            "div.article_view",         # 서울신문 구형
             # 외부 언론사 공통 패턴
             "div.article_body",
             "div.article-body",
@@ -197,12 +206,10 @@ async def _fetch_page(
             "div#newsct_article",
             "div.story-news",
             "div#articeBody",
-            "div#articleBody",
             "div.article_txt",
             "section.article-body",
-            # 언론사별 추가 패턴
+            # 추가 패턴
             "div#articleText",
-            "div.article_view",
             "div#news_body_area",
             "div.view-content",
         ]

@@ -225,6 +225,73 @@ async def backfill_bodies(
     return {"ok": True, "message": f"본문 백필 시작 (최대 50개)"}
 
 
+@router.post("/backfill-images")
+async def backfill_images(
+    background_tasks: BackgroundTasks,
+    x_admin_key: str | None = Header(None),
+):
+    """기존 토픽들의 image_urls_json을 최신 크롤링 로직으로 다시 채웁니다."""
+    _verify(x_admin_key)
+
+    async def _run():
+        import asyncio
+        import json
+        import logging
+        import httpx
+        from ..database import db
+        from ..services.crawler import _fetch_page, _unwrap_thumb, _add_image, _is_content_image
+
+        logger = logging.getLogger(__name__)
+        client = db()
+
+        # 전체 토픽 조회 (최대 200개)
+        res = client.table("topics").select("id, source, source_url, image_url").limit(200).execute()
+        rows = res.data or []
+        logger.info("backfill-images: %d개 토픽 이미지 재수집 시작", len(rows))
+
+        sem = asyncio.Semaphore(5)
+
+        async def fill(row: dict) -> None:
+            url = row.get("source_url", "")
+            source = row.get("source", "naver_news")
+            if not url:
+                return
+            async with sem:
+                try:
+                    async with httpx.AsyncClient(follow_redirects=True) as c:
+                        _body, fetched_images = await _fetch_page(c, url, source)
+                except Exception:
+                    return
+
+            # 대표 이미지 정규화
+            image_url = row.get("image_url") or ""
+            if image_url:
+                image_url = _unwrap_thumb(image_url)
+
+            all_imgs: list[str] = []
+            if image_url and _is_content_image(image_url):
+                all_imgs.append(image_url)
+            for img in fetched_images:
+                _add_image(img, all_imgs)
+
+            update_data: dict = {
+                "image_urls_json": json.dumps(all_imgs[:10], ensure_ascii=False) if all_imgs else None,
+            }
+            if image_url and image_url != row.get("image_url"):
+                update_data["image_url"] = image_url
+
+            try:
+                client.table("topics").update(update_data).eq("id", row["id"]).execute()
+            except Exception as e:
+                logger.error("backfill-images: topic %s 실패: %s", row["id"], e)
+
+        await asyncio.gather(*[fill(r) for r in rows], return_exceptions=True)
+        logger.info("backfill-images: 완료")
+
+    background_tasks.add_task(_run)
+    return {"ok": True, "message": "이미지 백필 시작 (최대 200개)"}
+
+
 @router.post("/fix-categories")
 async def fix_categories(x_admin_key: str | None = Header(None)):
     """뉴스 토픽의 카테고리를 키워드 기반으로 재분류합니다.

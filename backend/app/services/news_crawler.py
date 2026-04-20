@@ -20,7 +20,7 @@ from email.utils import parsedate_to_datetime
 import httpx
 from bs4 import BeautifulSoup
 
-from .crawler import CrawledPost, _HEADERS, _TIMEOUT, _fetch_page
+from .crawler import CrawledPost, _HEADERS, _TIMEOUT, _fetch_page, _add_image, _unwrap_thumb, _is_content_image
 
 
 # ---------------------------------------------------------------------------
@@ -242,16 +242,18 @@ async def crawl_news() -> list[CrawledPost]:
                 body, fetched_images = await _fetch_page(client, post.url, "rss_news")
                 if body and (not post.body or len(post.body) <= 150):
                     post.body = body
-                if fetched_images:
-                    if not post.image_url:
-                        post.image_url = fetched_images[0]
-                    # 전체 이미지 목록 구성
-                    all_imgs: list[str] = []
-                    if post.image_url:
-                        all_imgs.append(post.image_url)
-                    for img in fetched_images:
-                        if img not in all_imgs:
-                            all_imgs.append(img)
+                # 대표 이미지 unwrap
+                if post.image_url:
+                    post.image_url = _unwrap_thumb(post.image_url)
+                if fetched_images and not post.image_url:
+                    post.image_url = fetched_images[0]
+                # 전체 이미지 목록 구성 (중복 제거)
+                all_imgs: list[str] = []
+                if post.image_url and _is_content_image(post.image_url):
+                    all_imgs.append(post.image_url)
+                for img in fetched_images:
+                    _add_image(img, all_imgs)
+                if all_imgs:
                     post.image_urls = all_imgs[:10]
 
         await asyncio.gather(*[fill_body(p) for p in final_posts], return_exceptions=True)

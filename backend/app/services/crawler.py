@@ -54,6 +54,23 @@ def _normalize_url(url: str) -> str | None:
     return None
 
 
+def _unwrap_thumb(url: str) -> str:
+    """thumb.pann.com/tc_WxH/ORIGINAL_URL 형태에서 원본 URL을 추출합니다."""
+    m = re.match(r'https?://thumb\.pann\.com/tc_[^/]+/(https?://.+)', url)
+    if m:
+        return m.group(1)
+    # http:// 원본 URL (프로토콜 누락)
+    m = re.match(r'https?://thumb\.pann\.com/tc_[^/]+/(http://.+)', url)
+    if m:
+        return m.group(1)
+    return url
+
+
+def _base_url(url: str) -> str:
+    """쿼리스트링 제거한 기본 URL (중복 검사용)."""
+    return url.split("?")[0].split("|")[0]
+
+
 def _extract_og_image(soup: BeautifulSoup) -> str | None:
     """OG 이미지 또는 첫 번째 기사 이미지 URL을 추출합니다."""
     # 1순위: og:image
@@ -61,14 +78,14 @@ def _extract_og_image(soup: BeautifulSoup) -> str | None:
     if og and og.get("content"):
         url = _normalize_url(og["content"])
         if url:
-            return url
+            return _unwrap_thumb(url)
 
     # 2순위: twitter:image
     tw = soup.find("meta", attrs={"name": "twitter:image"})
     if tw and tw.get("content"):
         url = _normalize_url(tw["content"])
         if url:
-            return url
+            return _unwrap_thumb(url)
 
     return None
 
@@ -80,6 +97,17 @@ def _is_content_image(url: str) -> bool:
                "spinner", "loading", "pixel", "tracking", "beacon",
                "1x1", "spacer", "blank")
     return not any(p in low for p in exclude)
+
+
+def _add_image(url: str, found: list[str]) -> None:
+    """중복 없이 이미지를 found 리스트에 추가합니다 (쿼리스트링 기준 중복 제거)."""
+    url = _unwrap_thumb(url)
+    base = _base_url(url)
+    if not _is_content_image(url):
+        return
+    if any(_base_url(f) == base for f in found):
+        return
+    found.append(url)
 
 
 def _collect_images(el: object, found: list[str], max_count: int = 10) -> None:
@@ -96,8 +124,8 @@ def _collect_images(el: object, found: list[str], max_count: int = 10) -> None:
             or img.get("data-url", "")
         )
         norm = _normalize_url(src) if src else None
-        if norm and norm not in found and _is_content_image(norm):
-            found.append(norm)
+        if norm:
+            _add_image(norm, found)
 
 
 async def _fetch_page(
@@ -113,7 +141,7 @@ async def _fetch_page(
     soup = BeautifulSoup(resp.text, "lxml")
     og_image = _extract_og_image(soup)
     found_images: list[str] = []
-    if og_image:
+    if og_image and _is_content_image(og_image):
         found_images.append(og_image)
 
     selectors: list[str] = []
@@ -896,16 +924,18 @@ async def crawl_all() -> list[CrawledPost]:
                 body, fetched_images = await _fetch_page(client, target_url, post.source)
                 if body:
                     post.body = body
+                # pann 목록 썸네일 → 원본 URL 변환
+                if post.image_url:
+                    post.image_url = _unwrap_thumb(post.image_url)
                 # 대표 이미지: pann은 목록 페이지 썸네일 우선
                 if fetched_images and not post.image_url and post.source != "pann":
                     post.image_url = fetched_images[0]
                 # 전체 이미지 목록 구성 (대표 이미지 먼저, 중복 제거)
                 all_imgs: list[str] = []
-                if post.image_url:
+                if post.image_url and _is_content_image(post.image_url):
                     all_imgs.append(post.image_url)
                 for img in fetched_images:
-                    if img not in all_imgs:
-                        all_imgs.append(img)
+                    _add_image(img, all_imgs)
                 post.image_urls = all_imgs[:10]
 
         await asyncio.gather(*[fill_body(p) for p in posts], return_exceptions=True)

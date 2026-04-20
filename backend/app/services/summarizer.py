@@ -27,9 +27,10 @@ _SYSTEM_PROMPT_NEWS = """\
 다음 규칙을 반드시 지켜주세요:
 1. 기사의 핵심 내용을 담은 문장 3개를 작성합니다 (각 40자 이내, 경어체 ~해요/~예요).
 2. 이 기사의 핵심 쟁점에 맞는 독자 의견 투표 선택지 2개를 작성합니다 (각 15자 이내).
-   - 선택지는 기사의 구체적인 내용을 반영해야 합니다. 절대 "오를 것 같아요/내릴 것 같아요" 같은 범용 표현을 쓰지 마세요.
+   - 선택지는 기사의 구체적인 내용을 반영해야 합니다.
+   - 주가/증시/코스피/코스닥/나스닥 등 주식 시장 관련 기사라면 "오를 것 같아요" / "내릴 것 같아요"
+   - 그 외 경제 기사라면 내용에 맞게: 예) 금리 인상이라면 "불가피해요" / "시기상조예요", 기업 실적이라면 "기대돼요" / "걱정돼요"
    - 사회 기사라면 해당 사건/정책에 대한 독자 반응: 예) "잘한 결정이에요" / "잘못된 결정이에요"
-   - 경제 기사라면 기사 내용에 맞게: 예) 금리 인상 기사라면 "불가피해요" / "시기상조예요", 기업 실적 기사라면 "기대돼요" / "걱정돼요"
    - 스포츠 기사라면 경기/선수에 대한 반응: 예) "우승 가능해요" / "쉽지 않을 것 같아요"
    - 연예 기사라면 해당 연예인/사건에 대한 반응: 예) "잘 어울려요" / "의외예요"
 3. 특수문자나 마크다운은 사용하지 않습니다.
@@ -44,6 +45,19 @@ _DEFAULT_POLL_FALLBACK: dict[str, tuple[str, str]] = {
     "sports":  ("잘할 것 같아요", "힘들 것 같아요"),
     "love":    ("이해해요", "이해 못 하겠어요"),
 }
+
+# 주가/증시 관련 키워드 → 오를/내릴 폴 적용
+_STOCK_KEYWORDS = (
+    "주가", "주식", "코스피", "코스닥", "증시", "상장", "시총", "시가총액",
+    "나스닥", "다우", "s&p", "sp500", "etf", "배당", "공모주", "ipo",
+    "급등", "급락", "상승세", "하락세", "52주 신고", "52주 신저",
+)
+
+
+def _is_stock_article(title: str, body: str = "") -> bool:
+    """주가/증시 관련 기사인지 제목+본문 키워드로 판별합니다."""
+    text = (title + " " + body[:200]).lower()
+    return any(kw in text for kw in _STOCK_KEYWORDS)
 
 
 async def summarize(
@@ -60,6 +74,8 @@ async def summarize(
     is_news = category in ("society", "economy", "sports", "love")
     system_prompt = _SYSTEM_PROMPT_NEWS if is_news else _SYSTEM_PROMPT_COMMUNITY
     use_vision = not body.strip() and bool(image_urls)
+    # 주가 관련 기사 여부 (fallback poll 결정용)
+    is_stock = category == "economy" and _is_stock_article(title, body)
 
     try:
         if use_vision:
@@ -114,12 +130,19 @@ async def summarize(
         if isinstance(poll_raw, list) and len(poll_raw) >= 2 and all(isinstance(x, str) for x in poll_raw[:2]):
             poll = (poll_raw[0][:20], poll_raw[1][:20])
         else:
-            poll = _DEFAULT_POLL_FALLBACK.get(category, ("찬성해요", "반대해요"))
+            poll = _default_poll(category, is_stock)
 
         return summary, poll
 
     except Exception:
-        return _fallback_summary(title, is_news), _DEFAULT_POLL_FALLBACK.get(category, ("찬성해요", "반대해요"))
+        return _fallback_summary(title, is_news), _default_poll(category, is_stock)
+
+
+def _default_poll(category: str, is_stock: bool = False) -> tuple[str, str]:
+    """카테고리와 주가 여부에 따라 기본 투표 선택지를 반환합니다."""
+    if is_stock:
+        return ("오를 것 같아요", "내릴 것 같아요")
+    return _DEFAULT_POLL_FALLBACK.get(category, ("찬성해요", "반대해요"))
 
 
 def _fallback_summary(title: str, is_news: bool = False) -> list[str]:

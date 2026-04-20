@@ -180,6 +180,26 @@ async def _fetch_page(
             "div.inner.clear",
         ]
     elif source in ("naver_news", "rss_news"):
+        # 조선일보: JS-렌더링 페이지 → JSON-LD에서 이미지만 추출
+        if "chosun.com" in url:
+            import json as _json
+            for s in soup.find_all("script", type="application/ld+json"):
+                try:
+                    data = _json.loads(s.string or "")
+                    img_obj = data.get("image")
+                    if isinstance(img_obj, dict):
+                        img_url = img_obj.get("url", "")
+                    elif isinstance(img_obj, str):
+                        img_url = img_obj
+                    else:
+                        img_url = ""
+                    if img_url and img_url.startswith("http") and _is_content_image(img_url):
+                        _add_image(img_url, found_images)
+                except Exception:
+                    pass
+            # 본문은 JS 렌더링 필요 → 빈 문자열 반환 (RSS description 유지)
+            return "", found_images[:10]
+
         selectors = [
             # 네이버 뉴스 최신 (n.news.naver.com)
             "div#dic_area",
@@ -189,14 +209,14 @@ async def _fetch_page(
             "div._article_body_contents",
             "div#articleBodyContents",
             # 언론사별 특정 선택자 (우선순위 높음)
-            "div.articleView",          # 뉴시스
-            "div.main_view",            # 동아일보
-            "div.art_body",             # 경향신문
-            "div#articleBody",          # 경향신문 (id 방식)
-            "div#mcontent",             # 세계일보
-            "div#content",              # 한겨레
-            "div.view_article",         # 서울신문
-            "div.article_view",         # 서울신문 구형
+            "div.articleView div.view",  # 뉴시스 (본문 영역만, viewBottom 광고/배너 제외)
+            "div.main_view",             # 동아일보
+            "div.art_body",              # 경향신문
+            "div#articleBody",           # 경향신문 (id 방식)
+            "div#mcontent",              # 세계일보
+            "div#content",               # 한겨레
+            "div.view_article",          # 서울신문
+            "div.article_view",          # 서울신문 구형
             # 외부 언론사 공통 패턴
             "div.article_body",
             "div.article-body",

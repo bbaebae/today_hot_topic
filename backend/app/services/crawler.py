@@ -87,7 +87,14 @@ def _collect_images(el: object, found: list[str], max_count: int = 10) -> None:
     for img in el.find_all("img"):  # type: ignore[union-attr]
         if len(found) >= max_count:
             break
-        src = img.get("src", "") or img.get("data-src", "") or img.get("data-lazy", "")
+        src = (
+            img.get("src", "")
+            or img.get("data-src", "")
+            or img.get("data-original", "")
+            or img.get("data-lazy-src", "")
+            or img.get("data-lazy", "")
+            or img.get("data-url", "")
+        )
         norm = _normalize_url(src) if src else None
         if norm and norm not in found and _is_content_image(norm):
             found.append(norm)
@@ -176,7 +183,9 @@ async def _fetch_page(
         el = soup.select_one(sel)
         if el:
             text = el.get_text(separator="\n", strip=True)
-            if len(text) > 50:
+            has_images = bool(el.find("img"))
+            # 텍스트가 짧아도 이미지가 있으면 본문 컨테이너로 인정
+            if len(text) > 50 or has_images:
                 _collect_images(el, found_images)
                 return text[:3000], found_images[:10]
 
@@ -184,7 +193,8 @@ async def _fetch_page(
     el = soup.find("article")
     if el:
         text = el.get_text(separator="\n", strip=True)
-        if len(text) > 50:
+        has_images = bool(el.find("img"))
+        if len(text) > 50 or has_images:
             _collect_images(el, found_images)
             return text[:3000], found_images[:10]
 

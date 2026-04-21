@@ -43,13 +43,18 @@ _BODY_TIMEOUT = httpx.Timeout(10.0)
 
 
 def _normalize_url(url: str) -> str | None:
-    """프로토콜 상대 URL(//)을 https://로 변환합니다."""
+    """프로토콜 상대 URL(//)을 https://로, http://를 https://로 통일합니다.
+
+    중복 제거 및 Mixed Content 경고 방지를 위해 모든 이미지 URL을 HTTPS로 저장.
+    """
     if not url:
         return None
     url = url.strip()
     if url.startswith("//"):
         return "https:" + url
-    if url.startswith("http"):
+    if url.startswith("http://"):
+        return "https://" + url[7:]
+    if url.startswith("https://"):
         return url
     return None
 

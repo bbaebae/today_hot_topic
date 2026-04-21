@@ -43,6 +43,18 @@ async def run_ingestion() -> dict[str, int]:
         p for p in posts
         if (p.source, p.external_id) not in existing_keys
     ]
+    existing_posts = [
+        p for p in posts
+        if (p.source, p.external_id) in existing_keys
+    ]
+
+    # 기존 포스트도 image_url / image_urls_json 업데이트 (크롤러 버그 수정 반영용)
+    for post in existing_posts:
+        if post.image_urls:
+            client.table("topics").update({
+                "image_url": post.image_url,
+                "image_urls_json": json.dumps(post.image_urls, ensure_ascii=False),
+            }).eq("source", post.source).eq("external_id", post.external_id).execute()
 
     if not new_posts:
         return {"crawled": len(posts), "new": 0}

@@ -14,7 +14,6 @@ export async function submitVote(
       selectedOption,
       optionACount: selectedOption === 'A' ? 8235 : 8234,
       optionBCount: selectedOption === 'B' ? 1877 : 1876,
-      rewardEligible: true,
     };
   }
 

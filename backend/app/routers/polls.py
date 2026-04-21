@@ -43,13 +43,12 @@ async def vote(
         .execute()
     )
     if existing.data:
-        # Return current counts without marking reward_eligible
+        # Return current counts (already voted)
         return VoteResponse(
             poll_id=poll_id,
             selected_option=body.selected_option,
             option_a_count=poll["option_a_count"],
             option_b_count=poll["option_b_count"],
-            reward_eligible=False,
         )
 
     # Record the vote
@@ -76,5 +75,4 @@ async def vote(
         selected_option=body.selected_option,
         option_a_count=option_a,
         option_b_count=option_b,
-        reward_eligible=True,
     )

@@ -133,10 +133,9 @@ async def reset_topics(x_admin_key: str | None = Header(None)):
     _verify(x_admin_key)
     from ..database import db
     client = db()
-    client.table("point_transactions").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
     client.table("polls").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
     client.table("topics").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
-    return {"ok": True, "message": "모든 토픽/투표/포인트 내역 삭제 완료"}
+    return {"ok": True, "message": "모든 토픽/투표 삭제 완료"}
 
 
 @router.post("/backfill-bodies")

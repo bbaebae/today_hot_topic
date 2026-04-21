@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import base64
-import os
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,24 +10,8 @@ from .routers import auth, topics, polls, rewards, users, admin
 from .scheduler import start_scheduler, stop_scheduler
 
 
-def _restore_certs() -> None:
-    """base64 환경변수에서 mTLS 인증서 파일을 복원합니다."""
-    cert_map = {
-        "TOSS_MTLS_CERT_B64": settings.toss_mtls_cert_path,
-        "TOSS_MTLS_KEY_B64":  settings.toss_mtls_key_path,
-    }
-    for env_key, file_path in cert_map.items():
-        b64 = os.getenv(env_key)
-        if not b64:
-            continue
-        path = Path(file_path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(base64.b64decode(b64))
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    _restore_certs()
     start_scheduler()
     yield
     stop_scheduler()

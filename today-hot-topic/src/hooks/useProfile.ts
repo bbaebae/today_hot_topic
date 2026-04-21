@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import type { User, PointTransaction } from '../types/user';
+import type { User } from '../types/user';
 import { fetchUserProfile } from '../services/rewardService';
 
 export function useProfile() {
   const [user, setUser] = useState<User | null>(null);
-  const [transactions, setTransactions] = useState<PointTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -12,9 +11,8 @@ export function useProfile() {
     setIsLoading(true);
     fetchUserProfile()
       .then((data) => {
-        const d = data as { user: User; transactions: PointTransaction[] };
+        const d = data as { user: User };
         setUser(d.user);
-        setTransactions(d.transactions);
       })
       .catch((e: unknown) => {
         setError(e instanceof Error ? e.message : '불러오기 실패');
@@ -22,5 +20,5 @@ export function useProfile() {
       .finally(() => setIsLoading(false));
   }, []);
 
-  return { user, transactions, isLoading, error };
+  return { user, isLoading, error };
 }

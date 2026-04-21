@@ -26,12 +26,6 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 3600  # 1시간 (Toss accessToken 만료 주기에 맞춤)
 
-    # Point policy
-    vote_reward_amount: int = 10
-    ad_reward_amount: int = 20
-    share_reward_amount: int = 5
-    daily_point_limit: int = 100
-
     # Crawler
     crawler_interval_minutes: int = 30
     crawler_max_topics_per_source: int = 20

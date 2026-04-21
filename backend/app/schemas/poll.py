@@ -17,4 +17,3 @@ class VoteResponse(BaseModel):
     selected_option: Literal["A", "B"]
     option_a_count: int
     option_b_count: int
-    reward_eligible: bool

@@ -973,9 +973,9 @@ async def crawl_all() -> list[CrawledPost]:
                 body, fetched_images = await _fetch_page(client, target_url, post.source)
                 if body:
                     post.body = body
-                # pann 목록 썸네일 → 원본 URL 변환
+                # 목록 썸네일 → 원본 URL 변환 + https 통일
                 if post.image_url:
-                    post.image_url = _unwrap_thumb(post.image_url)
+                    post.image_url = _normalize_url(_unwrap_thumb(post.image_url))
                 # 대표 이미지: pann은 목록 페이지 썸네일 우선
                 if fetched_images and not post.image_url and post.source != "pann":
                     post.image_url = fetched_images[0]

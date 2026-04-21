@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTopics } from '../hooks/useTopics';
 import { useProfile } from '../hooks/useProfile';
@@ -7,6 +8,7 @@ import { NewsSubTab } from '../components/home/NewsSubTab';
 import { TrendingSection } from '../components/home/TrendingSection';
 import { TopicItem } from '../components/home/TopicItem';
 import { TopicSkeleton } from '../components/home/TopicSkeleton';
+import { BannerAdItem } from '../components/home/BannerAdItem';
 import type { MainTab, NewsSubCategory } from '../types/topic';
 import styles from './HomePage.module.css';
 
@@ -89,12 +91,14 @@ export default function HomePage() {
           </div>
         ) : (
           <ul className={styles.topicList}>
-            {topics.map((topic) => (
-              <TopicItem
-                key={topic.id}
-                topic={topic}
-                onClick={() => handleTopicClick(topic.id)}
-              />
+            {topics.map((topic, index) => (
+              <Fragment key={topic.id}>
+                <TopicItem
+                  topic={topic}
+                  onClick={() => handleTopicClick(topic.id)}
+                />
+                {(index + 1) % 5 === 0 && <BannerAdItem key={`banner-${index}`} />}
+              </Fragment>
             ))}
           </ul>
         )}

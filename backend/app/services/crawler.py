@@ -109,6 +109,32 @@ def _extract_og_image(soup: BeautifulSoup) -> str | None:
     return None
 
 
+_NEWS_JUNK_PATTERNS = [
+    re.compile(r'[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}'),  # 이메일
+    re.compile(r'등록\s*\d{4}[\.\-]\d{2}[\.\-]\d{2}'),                  # 등록 날짜
+    re.compile(r'수정\s*\d{4}[\.\-]\d{2}[\.\-]\d{2}'),                  # 수정 날짜
+    re.compile(r'^\s*\d{4}[\.\-]\d{2}[\.\-]\d{2}\s+\d{2}:\d{2}'),      # 날짜만 있는 줄
+    re.compile(r'\[[^\]]*=[^\]]*\]\s*\S+\s*(기자|특파원|앵커)'),         # [지역=언론사]기자
+    re.compile(r'^\s*(기자|특파원|앵커|편집자)\s*[=:]'),                  # 기자= 바이라인
+    re.compile(r'(무단\s*전재|무단\s*복제|무단\s*배포|재배포\s*금지)'),   # 저작권
+    re.compile(r'Copyright\s*(©|ⓒ|c)'),                                  # Copyright
+    re.compile(r'^\s*(작게|크게|글자\s*크기)\s*$'),                       # 폰트 버튼
+    re.compile(r'^\s*(공유|인쇄|스크랩|이메일|카카오|페이스북|트위터)\s*$'),  # 공유 버튼
+]
+
+
+def _clean_news_body(text: str) -> str:
+    """뉴스 본문에서 기자 이메일·날짜·바이라인·저작권 등 불필요한 메타데이터를 제거합니다."""
+    lines = text.split('\n')
+    cleaned = []
+    for line in lines:
+        stripped = line.strip()
+        if any(pat.search(stripped) for pat in _NEWS_JUNK_PATTERNS):
+            continue
+        cleaned.append(line)
+    return '\n'.join(cleaned).strip()
+
+
 def _is_content_image(url: str) -> bool:
     """콘텐츠 이미지인지 판별합니다 (아이콘/로고/광고 제외)."""
     low = url.lower()
@@ -256,6 +282,8 @@ async def _fetch_page(
             "div.view-content",
         ]
 
+    _is_news = source in ("naver_news", "rss_news")
+
     for sel in selectors:
         el = soup.select_one(sel)
         if el:
@@ -264,6 +292,8 @@ async def _fetch_page(
             # 텍스트가 짧아도 이미지가 있으면 본문 컨테이너로 인정
             if len(text) > 50 or has_images:
                 _collect_images(el, found_images)
+                if _is_news:
+                    text = _clean_news_body(text)
                 return text[:3000], found_images[:10]
 
     # 마지막 fallback: <article> 태그
@@ -273,6 +303,8 @@ async def _fetch_page(
         has_images = bool(el.find("img"))
         if len(text) > 50 or has_images:
             _collect_images(el, found_images)
+            if _is_news:
+                text = _clean_news_body(text)
             return text[:3000], found_images[:10]
 
     return "", found_images[:10]

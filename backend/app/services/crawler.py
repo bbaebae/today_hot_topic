@@ -67,8 +67,20 @@ def _unwrap_thumb(url: str) -> str:
 
 
 def _base_url(url: str) -> str:
-    """쿼리스트링 제거한 기본 URL (중복 검사용)."""
-    return url.split("?")[0].split("|")[0]
+    """중복 검사용 기본 URL.
+
+    download.jsp?FileID=xxx 처럼 경로 자체가 제네릭 핸들러이고
+    쿼리스트링이 실제 식별자인 경우 쿼리스트링을 포함한 전체 URL을 반환.
+    그 외에는 쿼리스트링을 제거한 경로만 반환.
+    """
+    clean = url.split("|")[0]
+    path = clean.split("?")[0]
+    # 경로의 마지막 세그먼트에 확장자가 없으면 쿼리스트링이 식별자
+    last_segment = path.rstrip("/").rsplit("/", 1)[-1]
+    _, ext = os.path.splitext(last_segment)
+    if not ext:
+        return clean  # 쿼리스트링 포함
+    return path
 
 
 def _extract_og_image(soup: BeautifulSoup) -> str | None:
@@ -962,8 +974,8 @@ async def crawl_all() -> list[CrawledPost]:
                     post.image_url = fetched_images[0]
                 # 전체 이미지 목록 구성 (대표 이미지 먼저, 중복 제거)
                 all_imgs: list[str] = []
-                if post.image_url and _is_content_image(post.image_url):
-                    all_imgs.append(post.image_url)
+                if post.image_url:
+                    _add_image(post.image_url, all_imgs)  # 동일 기준으로 중복 제거
                 for img in fetched_images:
                     _add_image(img, all_imgs)
                 post.image_urls = all_imgs[:10]

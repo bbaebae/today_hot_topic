@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { User } from '../types/user';
-import { fetchUserProfile } from '../services/rewardService';
+import { fetchUserProfile } from '../services/userService';
 
 export function useProfile() {
   const [user, setUser] = useState<User | null>(null);

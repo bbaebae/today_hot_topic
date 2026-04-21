@@ -11,15 +11,19 @@ export function useIAP(onPremiumActivated?: () => void) {
   const [price, setPrice] = useState<string>('');
   const [isSupported, setIsSupported] = useState(false);
 
-  // 상품 정보 로드 및 지원 여부 확인
+  // 1. 상품 목록 가져오기
   useEffect(() => {
+    if (!IAP) return;
+
     async function load() {
       try {
-        if (!IAP) return;
-        setIsSupported(true);
-        const res = await IAP.getProductItemList();
-        const pass = res?.products.find((p) => p.sku === DOPAMINE_PASS_SKU);
-        if (pass) setPrice(pass.displayAmount);
+        const response = await IAP!.getProductItemList();
+        const products = response?.products ?? [];
+        const pass = products.find((p) => p.sku === DOPAMINE_PASS_SKU);
+        if (pass) {
+          setPrice(pass.displayAmount);
+          setIsSupported(true);
+        }
       } catch {
         // 토스 앱 환경이 아님
       }
@@ -27,6 +31,7 @@ export function useIAP(onPremiumActivated?: () => void) {
     load();
   }, []);
 
+  // 2. 인앱결제 요청하기
   const purchase = useCallback(() => {
     if (!IAP) return;
     setStatus('loading');
@@ -34,9 +39,9 @@ export function useIAP(onPremiumActivated?: () => void) {
     const cleanup = IAP.createOneTimePurchaseOrder({
       options: {
         sku: DOPAMINE_PASS_SKU,
+        // processProductGrant: 30초 내에 true를 반환해야 함
         processProductGrant: async ({ orderId }) => {
           try {
-            // 백엔드에 프리미엄 활성화 요청
             await post('/users/me/premium', {
               order_id: orderId,
               sku: DOPAMINE_PASS_SKU,
@@ -54,38 +59,48 @@ export function useIAP(onPremiumActivated?: () => void) {
           cleanup();
         }
       },
-      onError: () => {
+      onError: (error) => {
+        console.error('[IAP] 결제 실패:', error);
         setStatus('error');
         cleanup();
       },
     });
   }, [onPremiumActivated]);
 
-  // 앱 재시작 시 미처리 주문 복구
+  // 3. 주문 복원하기: 앱 시작 시 미결 주문 처리
   useEffect(() => {
+    if (!IAP) return;
+
     async function recoverPendingOrders() {
       try {
-        if (!IAP) return;
-        const pending = await IAP.getPendingOrders();
-        if (!pending?.orders.length) return;
+        const result = await IAP!.getPendingOrders();
+        const orders = result?.orders ?? [];
+        if (orders.length === 0) return;
 
-        for (const order of pending.orders) {
+        let recovered = false;
+        for (const order of orders) {
           try {
             await post('/users/me/premium', {
               order_id: order.orderId,
               sku: order.sku ?? DOPAMINE_PASS_SKU,
             });
-            await IAP.completeProductGrant({ params: { orderId: order.orderId } });
+            await IAP!.completeProductGrant({ params: { orderId: order.orderId } });
+            recovered = true;
           } catch {
-            // 개별 복구 실패는 무시
+            // 개별 주문 복원 실패는 무시
           }
         }
+
+        if (recovered) {
+          onPremiumActivated?.();
+        }
       } catch {
-        // 복구 실패 무시
+        // 복원 실패 무시
       }
     }
+
     recoverPendingOrders();
-  }, []);
+  }, [onPremiumActivated]);
 
   return { status, price, isSupported, purchase };
 }

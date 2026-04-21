@@ -228,6 +228,17 @@ async def _fetch_page(
             "div.inner.clear",
         ]
     elif source in ("naver_news", "rss_news"):
+        # 세계일보: div#mcontent는 사이드바·광고 포함 → article.viewBox2만 사용
+        if "segye.com" in url:
+            el = soup.select_one("article.viewBox2") or soup.select_one("div#article_txt")
+            if el:
+                # 기자 카드(이미지·이메일 포함) 제거 후 수집
+                for junk in el.select("div.newsct_journalist, div.media_journalistcard_item, aside, .relate_news, .related"):
+                    junk.decompose()
+                text = _clean_news_body(el.get_text(separator="\n", strip=True))
+                _collect_images(el, found_images)
+                return text[:3000], found_images[:10]
+
         # 조선일보: JS-렌더링 페이지 → JSON-LD에서 이미지만 추출
         if "chosun.com" in url:
             import json as _json
@@ -261,7 +272,6 @@ async def _fetch_page(
             "div.main_view",             # 동아일보
             "div.art_body",              # 경향신문
             "div#articleBody",           # 경향신문 (id 방식)
-            "div#mcontent",              # 세계일보
             "div#content",               # 한겨레
             "div.view_article",          # 서울신문
             "div.article_view",          # 서울신문 구형

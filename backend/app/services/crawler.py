@@ -115,13 +115,16 @@ def _collect_images(el: object, found: list[str], max_count: int = 10) -> None:
     for img in el.find_all("img"):  # type: ignore[union-attr]
         if len(found) >= max_count:
             break
+        # data-* 속성을 src보다 먼저 확인.
+        # 판 등 lazy-loading 사이트는 src에 첫 번째 이미지(placeholder)를 반복 설정하고
+        # 실제 각 이미지 URL은 data-original / data-src 등에 저장하기 때문.
         src = (
-            img.get("src", "")
+            img.get("data-original", "")
             or img.get("data-src", "")
-            or img.get("data-original", "")
             or img.get("data-lazy-src", "")
             or img.get("data-lazy", "")
             or img.get("data-url", "")
+            or img.get("src", "")
         )
         norm = _normalize_url(src) if src else None
         if norm:

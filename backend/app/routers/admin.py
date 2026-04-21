@@ -238,7 +238,7 @@ async def backfill_images(
         import logging
         import httpx
         from ..database import db
-        from ..services.crawler import _fetch_page, _unwrap_thumb, _add_image, _is_content_image
+        from ..services.crawler import _fetch_page, _normalize_url, _unwrap_thumb, _add_image, _is_content_image
 
         logger = logging.getLogger(__name__)
         client = db()
@@ -262,14 +262,13 @@ async def backfill_images(
                 except Exception:
                     return
 
-            # 대표 이미지 정규화
-            image_url = row.get("image_url") or ""
-            if image_url:
-                image_url = _unwrap_thumb(image_url)
+            # 대표 이미지 정규화 (http→https 포함)
+            raw_image_url = row.get("image_url") or ""
+            image_url = _normalize_url(_unwrap_thumb(raw_image_url)) if raw_image_url else None
 
             all_imgs: list[str] = []
-            if image_url and _is_content_image(image_url):
-                all_imgs.append(image_url)
+            if image_url:
+                _add_image(image_url, all_imgs)  # 중복 제거 기준 통일
             for img in fetched_images:
                 _add_image(img, all_imgs)
 

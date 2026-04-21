@@ -169,9 +169,9 @@ async def _fetch_page(
     selectors: list[str] = []
     if source == "pann":
         selectors = [
+            "div#contentArea",         # 네이트판 메인 콘텐츠 영역 (이미지 포함)
             "div.se-main-container",   # Naver SmartEditor3
             "div.post_cont",
-            "div#contentArea",
             "div.view_content",
             "div.talk_cont",
         ]

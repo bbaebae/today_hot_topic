@@ -67,6 +67,10 @@ async def list_topics(
     items = []
     for row in topics:
         poll = polls_map.get(row["id"], {})
+        # http→https 정규화
+        img = row.get("image_url")
+        if img and img.startswith("http://"):
+            row = {**row, "image_url": "https://" + img[7:]}
         items.append(TopicListItem(
             **row,
             poll_id=poll.get("id", ""),
@@ -99,14 +103,22 @@ async def get_topic(topic_id: str):
     except (json.JSONDecodeError, TypeError):
         summary = [raw_summary] if raw_summary else []
 
-    # image_urls_json 파싱
+    # image_urls_json 파싱 + http→https 정규화 + 중복 제거
     raw_image_urls = row.get("image_urls_json") or "[]"
     try:
-        image_urls: list[str] = json.loads(raw_image_urls) if isinstance(raw_image_urls, str) else []
-        if not isinstance(image_urls, list):
-            image_urls = []
+        _parsed_urls: list[str] = json.loads(raw_image_urls) if isinstance(raw_image_urls, str) else []
+        if not isinstance(_parsed_urls, list):
+            _parsed_urls = []
     except (json.JSONDecodeError, TypeError):
-        image_urls = []
+        _parsed_urls = []
+    # http://를 https://로 통일하고 중복 제거
+    image_urls: list[str] = []
+    seen_urls: set[str] = set()
+    for _u in _parsed_urls:
+        _u = _u.replace("http://", "https://", 1) if _u.startswith("http://") else _u
+        if _u not in seen_urls:
+            seen_urls.add(_u)
+            image_urls.append(_u)
 
     poll_res = (
         client.table("polls")
@@ -123,11 +135,15 @@ async def get_topic(topic_id: str):
     except Exception:
         pass
 
+    _img_url = row.get("image_url")
+    if _img_url and _img_url.startswith("http://"):
+        _img_url = "https://" + _img_url[7:]
+
     return TopicDetail(
         id=row["id"],
         title=row["title"],
         category=row["category"],
-        image_url=row.get("image_url"),
+        image_url=_img_url,
         image_urls=image_urls,
         view_count=row["view_count"],
         rank=row["rank"],

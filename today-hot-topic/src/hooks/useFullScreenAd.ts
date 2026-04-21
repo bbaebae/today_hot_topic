@@ -9,13 +9,21 @@ const MIN_CLICKS_BEFORE_AD = 3;
 // 노출 대상이 된 후 광고를 실제로 보여줄 확률 (0~1)
 const AD_PROBABILITY = 0.4;
 
+function isFnSupported(fn: { isSupported?: () => boolean }): boolean {
+  try {
+    return fn.isSupported?.() ?? false;
+  } catch {
+    return false;
+  }
+}
+
 export function useFullScreenAd() {
   const [isLoaded, setIsLoaded] = useState(false);
   const unregisterRef = useRef<(() => void) | null>(null);
   const clickCountRef = useRef(0);
 
   const loadAd = useCallback(() => {
-    if (!loadFullScreenAd.isSupported()) return;
+    if (!isFnSupported(loadFullScreenAd)) return;
     setIsLoaded(false);
 
     const unregister = loadFullScreenAd({
@@ -50,7 +58,7 @@ export function useFullScreenAd() {
 
       const shouldShow =
         !skip &&
-        showFullScreenAd.isSupported() &&
+        isFnSupported(showFullScreenAd) &&
         isLoaded &&
         clickCountRef.current >= MIN_CLICKS_BEFORE_AD &&
         Math.random() < AD_PROBABILITY;

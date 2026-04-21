@@ -14,5 +14,13 @@ export async function fetchUserProfile() {
   }
 
   const { get } = await import('./api');
-  return get('/users/me');
+  try {
+    return get('/users/me');
+  } catch (e: unknown) {
+    // 토스 앱 외부(브라우저 등) 환경에서 JWT 없이 401이 오면 null 유저로 처리
+    if (e instanceof Error && (e as Error & { status?: number }).status === 401) {
+      return { user: null };
+    }
+    throw e;
+  }
 }

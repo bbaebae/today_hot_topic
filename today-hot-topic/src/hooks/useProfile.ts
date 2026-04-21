@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { User } from '../types/user';
 import { fetchUserProfile } from '../services/rewardService';
 
@@ -6,6 +6,7 @@ export function useProfile() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [trigger, setTrigger] = useState(0);
 
   useEffect(() => {
     setIsLoading(true);
@@ -18,7 +19,9 @@ export function useProfile() {
         setError(e instanceof Error ? e.message : '불러오기 실패');
       })
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [trigger]);
 
-  return { user, isLoading, error };
+  const refetch = useCallback(() => setTrigger((t) => t + 1), []);
+
+  return { user, isLoading, error, refetch };
 }

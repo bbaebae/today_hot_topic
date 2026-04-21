@@ -4,9 +4,15 @@ import { loadFullScreenAd, showFullScreenAd } from '@apps-in-toss/web-framework'
 const AD_GROUP_ID =
   import.meta.env.VITE_INTERSTITIAL_AD_GROUP_ID ?? 'ait.dev.43daa14da3ae487b';
 
+// 최소 N번 클릭 후부터 광고 노출 대상
+const MIN_CLICKS_BEFORE_AD = 3;
+// 노출 대상이 된 후 광고를 실제로 보여줄 확률 (0~1)
+const AD_PROBABILITY = 0.4;
+
 export function useFullScreenAd() {
   const [isLoaded, setIsLoaded] = useState(false);
   const unregisterRef = useRef<(() => void) | null>(null);
+  const clickCountRef = useRef(0);
 
   const loadAd = useCallback(() => {
     if (!loadFullScreenAd.isSupported()) return;
@@ -34,34 +40,46 @@ export function useFullScreenAd() {
   }, [loadAd]);
 
   /**
-   * 광고를 표시합니다.
-   * @param onDismissed 광고가 닫히거나 지원되지 않을 때 실행할 콜백
-   * @param skip true면 광고 없이 onDismissed 즉시 실행 (프리미엄 유저)
+   * 클릭마다 호출. 조건 충족 시 광고 노출 후 onNavigate 실행.
+   * @param onNavigate 광고 종료(또는 스킵) 후 실행할 콜백
+   * @param skip true면 광고 없이 즉시 실행 (프리미엄 유저)
    */
-  const show = useCallback(
-    (onDismissed: () => void, skip = false) => {
-      if (skip || !showFullScreenAd.isSupported() || !isLoaded) {
-        onDismissed();
+  const maybeShow = useCallback(
+    (onNavigate: () => void, skip = false) => {
+      clickCountRef.current += 1;
+
+      const shouldShow =
+        !skip &&
+        showFullScreenAd.isSupported() &&
+        isLoaded &&
+        clickCountRef.current >= MIN_CLICKS_BEFORE_AD &&
+        Math.random() < AD_PROBABILITY;
+
+      if (!shouldShow) {
+        onNavigate();
         return;
       }
+
+      // 광고 노출 → 카운터 리셋
+      clickCountRef.current = 0;
 
       showFullScreenAd({
         options: { adGroupId: AD_GROUP_ID },
         onEvent: (event) => {
           if (event.type === 'dismissed' || event.type === 'failedToShow') {
-            loadAd(); // 다음 광고 미리 로드
-            onDismissed();
+            loadAd();
+            onNavigate();
           }
         },
         onError: (error) => {
           console.error('[Ad] 표시 실패:', error);
           loadAd();
-          onDismissed();
+          onNavigate();
         },
       });
     },
     [isLoaded, loadAd],
   );
 
-  return { isLoaded, show };
+  return { isLoaded, maybeShow };
 }

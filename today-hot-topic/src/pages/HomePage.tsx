@@ -15,7 +15,7 @@ import styles from './HomePage.module.css';
 export default function HomePage() {
   const navigate = useNavigate();
   const { user } = useProfile();
-  const { show: showAd } = useFullScreenAd();
+  const { maybeShow } = useFullScreenAd();
   const {
     topics,
     isLoading,
@@ -36,7 +36,7 @@ export default function HomePage() {
 
   const handleTopicClick = (topicId: string) => {
     // 프리미엄 유저는 광고 없이 바로 이동
-    showAd(() => navigate(`/topics/${topicId}`), user?.isPremium ?? false);
+    maybeShow(() => navigate(`/topics/${topicId}`), user?.isPremium ?? false);
   };
 
   return (

@@ -66,21 +66,23 @@ def _unwrap_thumb(url: str) -> str:
     return url
 
 
+_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".avif", ".svg"}
+
+
 def _base_url(url: str) -> str:
     """중복 검사용 기본 URL.
 
-    download.jsp?FileID=xxx 처럼 경로 자체가 제네릭 핸들러이고
-    쿼리스트링이 실제 식별자인 경우 쿼리스트링을 포함한 전체 URL을 반환.
-    그 외에는 쿼리스트링을 제거한 경로만 반환.
+    .jpg/.png 등 정적 이미지 확장자면 쿼리스트링 제거.
+    download.jsp?FileID=xxx 같은 핸들러 URL은 쿼리스트링이 실제 식별자이므로
+    전체 URL(쿼리스트링 포함)을 반환.
     """
     clean = url.split("|")[0]
     path = clean.split("?")[0]
-    # 경로의 마지막 세그먼트에 확장자가 없으면 쿼리스트링이 식별자
     last_segment = path.rstrip("/").rsplit("/", 1)[-1]
     _, ext = os.path.splitext(last_segment)
-    if not ext:
-        return clean  # 쿼리스트링 포함
-    return path
+    if ext.lower() in _IMAGE_EXTS:
+        return path  # 정적 이미지: 쿼리스트링 제거
+    return clean     # 핸들러 URL: 쿼리스트링 포함
 
 
 def _extract_og_image(soup: BeautifulSoup) -> str | None:

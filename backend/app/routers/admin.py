@@ -354,6 +354,24 @@ async def refresh_source_bodies(
     return {"ok": True, "message": f"{source} 토픽 body 재수집 시작"}
 
 
+@router.post("/reset-source")
+async def reset_source(
+    source: str = "naver_news",
+    x_admin_key: str | None = Header(None),
+):
+    """특정 소스의 토픽·투표를 모두 삭제합니다 (재인제스션 전 초기화용)."""
+    _verify(x_admin_key)
+    from ..database import db
+    client = db()
+    # 해당 소스의 topic id 조회
+    res = client.table("topics").select("id").eq("source", source).execute()
+    topic_ids = [row["id"] for row in (res.data or [])]
+    if topic_ids:
+        client.table("polls").delete().in_("topic_id", topic_ids).execute()
+        client.table("topics").delete().eq("source", source).execute()
+    return {"ok": True, "deleted": len(topic_ids), "source": source}
+
+
 @router.post("/fix-categories")
 async def fix_categories(x_admin_key: str | None = Header(None)):
     """뉴스 토픽의 카테고리를 키워드 기반으로 재분류합니다.

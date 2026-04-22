@@ -292,6 +292,68 @@ async def backfill_images(
     return {"ok": True, "message": "이미지 백필 시작 (최대 200개)"}
 
 
+@router.post("/refresh-source-bodies")
+async def refresh_source_bodies(
+    background_tasks: BackgroundTasks,
+    source: str = "segye",
+    x_admin_key: str | None = Header(None),
+):
+    """특정 소스 토픽들의 body·image_urls를 강제로 다시 크롤링합니다 (기존 내용 덮어씀)."""
+    _verify(x_admin_key)
+
+    async def _run():
+        import asyncio
+        import json
+        import logging
+        import httpx
+        from ..database import db
+        from ..services.crawler import _fetch_page
+
+        logger = logging.getLogger(__name__)
+        client = db()
+
+        res = client.table("topics").select("id, source_url, source").eq("source", source).limit(100).execute()
+        rows = res.data or []
+        logger.info("refresh-source-bodies: %s 토픽 %d개 재수집 시작", source, len(rows))
+
+        sem = asyncio.Semaphore(3)
+
+        async def refresh(row: dict) -> None:
+            url = row.get("source_url", "")
+            src = row.get("source", source)
+            if not url:
+                return
+            async with sem:
+                try:
+                    async with httpx.AsyncClient(follow_redirects=True) as c:
+                        body, images = await _fetch_page(c, url, src)
+                except Exception as e:
+                    logger.error("refresh: %s 실패: %s", url, e)
+                    return
+
+            if not body and not images:
+                return
+
+            update: dict = {}
+            if body:
+                update["body"] = body
+            if images:
+                update["image_urls_json"] = json.dumps(images, ensure_ascii=False)
+                update["image_url"] = images[0]
+
+            try:
+                client.table("topics").update(update).eq("id", row["id"]).execute()
+                logger.info("refresh: %s 완료 (body %d자, 이미지 %d개)", row["id"], len(body), len(images))
+            except Exception as e:
+                logger.error("refresh: %s 업데이트 실패: %s", row["id"], e)
+
+        await asyncio.gather(*[refresh(r) for r in rows], return_exceptions=True)
+        logger.info("refresh-source-bodies: 완료")
+
+    background_tasks.add_task(_run)
+    return {"ok": True, "message": f"{source} 토픽 body 재수집 시작"}
+
+
 @router.post("/fix-categories")
 async def fix_categories(x_admin_key: str | None = Header(None)):
     """뉴스 토픽의 카테고리를 키워드 기반으로 재분류합니다.

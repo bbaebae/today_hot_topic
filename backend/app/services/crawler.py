@@ -259,25 +259,16 @@ async def _fetch_page(
                 _collect_images(el, found_images)
                 return text[:3000], found_images[:10]
 
-        # 조선일보: JS-렌더링 페이지 → JSON-LD에서 이미지만 추출
+        # 조선일보: section.article-body에 본문·이미지 포함
         if "chosun.com" in url:
-            import json as _json
-            for s in soup.find_all("script", type="application/ld+json"):
-                try:
-                    data = _json.loads(s.string or "")
-                    img_obj = data.get("image")
-                    if isinstance(img_obj, dict):
-                        img_url = img_obj.get("url", "")
-                    elif isinstance(img_obj, str):
-                        img_url = img_obj
-                    else:
-                        img_url = ""
-                    if img_url and img_url.startswith("http") and _is_content_image(img_url):
-                        _add_image(img_url, found_images)
-                except Exception:
-                    pass
-            # 본문은 JS 렌더링 필요 → 빈 문자열 반환 (RSS description 유지)
-            return "", found_images[:10]
+            el = soup.select_one("section.article-body") or soup.select_one("section[itemprop='articleBody']")
+            if el:
+                # 광고 블록 제거
+                for junk in el.select("div.arcad-wrapper, div.dfpAd, aside, .relate_news"):
+                    junk.decompose()
+                text = _clean_news_body(el.get_text(separator="\n", strip=True))
+                _collect_images(el, found_images)
+                return text[:3000], found_images[:10]
 
         selectors = [
             # 네이버 뉴스 최신 (n.news.naver.com)

@@ -178,13 +178,13 @@ def _collect_images(el: object, found: list[str], max_count: int = 10) -> None:
 
 async def _fetch_page(
     client: httpx.AsyncClient, url: str, source: str
-) -> tuple[str, list[str]]:
-    """소스별 상세 페이지에서 (본문, 이미지 URL 리스트)를 추출합니다."""
+) -> tuple[str, list[str], list[str]]:
+    """소스별 상세 페이지에서 (본문, 이미지 URL 리스트, 베스트댓글 리스트)를 추출합니다."""
     try:
         resp = await client.get(url, headers=_HEADERS, timeout=_BODY_TIMEOUT)
         resp.raise_for_status()
     except Exception:
-        return "", []
+        return "", [], []
 
     soup = BeautifulSoup(resp.text, "lxml")
     og_image = _extract_og_image(soup)
@@ -251,7 +251,7 @@ async def _fetch_page(
                 _collect_images(el, segye_images)
                 if not segye_images and og_image:
                     segye_images.append(og_image)
-                return text[:3000], segye_images[:10]
+                return text[:3000], segye_images[:10], []
 
         # 뉴시스: infoLine(등록일·이메일·프린트·폰트버튼) DOM 제거
         if "newsis.com" in url:
@@ -261,7 +261,7 @@ async def _fetch_page(
                     junk.decompose()
                 text = _clean_news_body(el.get_text(separator="\n", strip=True))
                 _collect_images(el, found_images)
-                return text[:3000], found_images[:10]
+                return text[:3000], found_images[:10], []
 
         # 조선일보: section.article-body에 본문·이미지 포함
         if "chosun.com" in url:
@@ -272,7 +272,7 @@ async def _fetch_page(
                     junk.decompose()
                 text = _clean_news_body(el.get_text(separator="\n", strip=True))
                 _collect_images(el, found_images)
-                return text[:3000], found_images[:10]
+                return text[:3000], found_images[:10], []
 
         selectors = [
             # 네이버 뉴스 최신 (n.news.naver.com)
@@ -319,7 +319,8 @@ async def _fetch_page(
                 _collect_images(el, found_images)
                 if _is_news:
                     text = _clean_news_body(text)
-                return text[:3000], found_images[:10]
+                comments = [] if _is_news else _fetch_comments(soup, source)
+                return text[:3000], found_images[:10], comments
 
     # 마지막 fallback: <article> 태그
     el = soup.find("article")
@@ -330,15 +331,82 @@ async def _fetch_page(
             _collect_images(el, found_images)
             if _is_news:
                 text = _clean_news_body(text)
-            return text[:3000], found_images[:10]
+            comments = [] if _is_news else _fetch_comments(soup, source)
+            return text[:3000], found_images[:10], comments
 
-    return "", found_images[:10]
+    comments = [] if _is_news else _fetch_comments(soup, source)
+    return "", found_images[:10], comments
 
 
 # 하위호환 래퍼 (news_crawler.py에서 사용)
 async def _fetch_body(client: httpx.AsyncClient, url: str, source: str) -> str:
-    body, _ = await _fetch_page(client, url, source)
+    body, _, _ = await _fetch_page(client, url, source)
     return body
+
+
+def _fetch_comments(soup: BeautifulSoup, source: str) -> list[str]:
+    """커뮤니티 게시글의 베스트 댓글을 추출합니다. 실패 시 빈 리스트 반환."""
+    candidates: list[str] = []
+
+    if source == "pann":
+        # 네이트판: 댓글 본문 (.ply_info .txt_content or .cmmt_area li)
+        for el in soup.select(".ply_info .txt_content, .cmmt_area .txt_content, #talk_comment_list li .ply_txt"):
+            t = el.get_text(strip=True)
+            if t:
+                candidates.append(t)
+
+    elif source == "theqoo":
+        for el in soup.select(".comment_body .xe_content, .fb-comment-item .comment_content"):
+            t = el.get_text(strip=True)
+            if t:
+                candidates.append(t)
+
+    elif source == "instiz":
+        for el in soup.select(".comment_content, .comment_text_wrap p"):
+            t = el.get_text(strip=True)
+            if t:
+                candidates.append(t)
+
+    elif source == "todayhumor":
+        for el in soup.select("table.view_reply .view_reple_text, .replyContent"):
+            t = el.get_text(strip=True)
+            if t:
+                candidates.append(t)
+
+    elif source == "gaeddip":
+        for el in soup.select(".comment-body p, .comment-text, .comment-content"):
+            t = el.get_text(strip=True)
+            if t:
+                candidates.append(t)
+
+    elif source == "bobaedream":
+        for el in soup.select(".cmt_content, .cbh .bodyCont, #commentList li .bodyCont"):
+            t = el.get_text(strip=True)
+            if t:
+                candidates.append(t)
+
+    elif source == "mlbpark":
+        for el in soup.select(".reComment_body .txt, .cmt_txt"):
+            t = el.get_text(strip=True)
+            if t:
+                candidates.append(t)
+
+    elif source == "dcinside":
+        for el in soup.select(".cmt_list .ub-content .usertxt, span.usertxt.ub-word"):
+            t = el.get_text(strip=True)
+            if t:
+                candidates.append(t)
+
+    seen: set[str] = set()
+    result: list[str] = []
+    for c in candidates:
+        c = c[:120]
+        if c not in seen and len(c) >= 5:
+            seen.add(c)
+            result.append(c)
+        if len(result) >= 10:
+            break
+    return result
 
 
 @dataclass
@@ -353,6 +421,7 @@ class CrawledPost:
     image_urls: list[str] = field(default_factory=list)
     view_count: int = 0
     fetch_url: str = ""  # 본문 fetch용 URL (기본값: url과 동일)
+    top_comments: list[str] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -1027,9 +1096,11 @@ async def crawl_all() -> list[CrawledPost]:
                 return
             async with sem:
                 target_url = post.fetch_url or post.url
-                body, fetched_images = await _fetch_page(client, target_url, post.source)
+                body, fetched_images, comments = await _fetch_page(client, target_url, post.source)
                 if body:
                     post.body = body
+                if comments:
+                    post.top_comments = comments
                 # 목록 썸네일 → 원본 URL 변환 + https 통일
                 if post.image_url:
                     post.image_url = _normalize_url(_unwrap_thumb(post.image_url))

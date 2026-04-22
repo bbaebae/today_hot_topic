@@ -47,6 +47,7 @@ class TopicDetail(TopicBase):
     summary: list[str]
     poll: PollSchema
     image_urls: list[str] = []
+    top_comments: list[str] = []
 
 
 class TopicsResponse(BaseModel):

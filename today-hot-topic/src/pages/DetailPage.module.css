@@ -81,6 +81,87 @@
   text-align: center;
 }
 
+/* 본문/베스트댓글 탭 */
+.tabBar {
+  display: flex;
+  border-bottom: 1px solid var(--color-gray-100);
+  background: #ffffff;
+  margin-bottom: 0;
+}
+
+.tabButton {
+  flex: 1;
+  padding: 12px 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-gray-400);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.tabButton.active {
+  color: var(--color-gray-900);
+  font-weight: 700;
+  border-bottom-color: var(--color-gray-900);
+}
+
+/* 베스트댓글 목록 */
+.commentList {
+  margin: 0 0 8px;
+  background: #ffffff;
+  padding: 8px 0;
+}
+
+.commentItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--color-gray-50);
+}
+
+.commentItem:last-child {
+  border-bottom: none;
+}
+
+.commentRank {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-gray-100);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-gray-500);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+
+.commentRank.top {
+  background: var(--color-gray-900);
+  color: #ffffff;
+}
+
+.commentText {
+  font-size: 14px;
+  color: var(--color-gray-800);
+  line-height: 1.6;
+  word-break: keep-all;
+}
+
+.noComments {
+  padding: 32px 20px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--color-gray-400);
+  background: #ffffff;
+}
+
 .bottomSpacer {
   height: 200px; /* stickyPoll 높이만큼 여백 */
 }

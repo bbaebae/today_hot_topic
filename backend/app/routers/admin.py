@@ -200,7 +200,7 @@ async def backfill_bodies(
             async with sem:
                 try:
                     async with httpx.AsyncClient(follow_redirects=True) as c:
-                        body, image_url = await _fetch_page(c, url, source)
+                        body, image_url, _ = await _fetch_page(c, url, source)
                 except Exception:
                     return
 
@@ -258,7 +258,7 @@ async def backfill_images(
             async with sem:
                 try:
                     async with httpx.AsyncClient(follow_redirects=True) as c:
-                        _body, fetched_images = await _fetch_page(c, url, source)
+                        _body, fetched_images, _ = await _fetch_page(c, url, source)
                 except Exception:
                     return
 
@@ -326,7 +326,7 @@ async def refresh_source_bodies(
             async with sem:
                 try:
                     async with httpx.AsyncClient(follow_redirects=True) as c:
-                        body, images = await _fetch_page(c, url, src)
+                        body, images, _ = await _fetch_page(c, url, src)
                 except Exception as e:
                     logger.error("refresh: %s 실패: %s", url, e)
                     return

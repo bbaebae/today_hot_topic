@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useTopicDetail } from '../hooks/useTopicDetail';
@@ -28,10 +29,14 @@ function DetailSkeleton() {
 export default function DetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<'body' | 'comments'>('body');
 
   const { topic, isLoading, error, hasVoted, votedOption, markVoted } =
     useTopicDetail(id ?? '');
   const { submit, isSubmitting } = useVote();
+
+  const hasComments = (topic?.topComments?.length ?? 0) > 0;
+  const isStory = topic?.category === 'story';
 
   const handleVote = async (option: 'A' | 'B') => {
     if (!topic) return;
@@ -95,10 +100,42 @@ export default function DetailPage() {
               createdAt={topic.createdAt}
             />
 
+            {/* 썰 카테고리: 본문/베스트댓글 탭 */}
+            {isStory && hasComments && (
+              <div className={styles.tabBar}>
+                <button
+                  className={`${styles.tabButton} ${activeTab === 'body' ? styles.active : ''}`}
+                  onClick={() => setActiveTab('body')}
+                >
+                  본문
+                </button>
+                <button
+                  className={`${styles.tabButton} ${activeTab === 'comments' ? styles.active : ''}`}
+                  onClick={() => setActiveTab('comments')}
+                >
+                  베스트댓글
+                </button>
+              </div>
+            )}
+
             {/* 본문 */}
-            {topic.body && (
+            {(!isStory || !hasComments || activeTab === 'body') && topic.body && (
               <div className={styles.bodySection}>
                 <p className={styles.bodyText}>{topic.body}</p>
+              </div>
+            )}
+
+            {/* 베스트댓글 */}
+            {isStory && hasComments && activeTab === 'comments' && (
+              <div className={styles.commentList}>
+                {topic.topComments!.map((comment, i) => (
+                  <div key={i} className={styles.commentItem}>
+                    <span className={`${styles.commentRank} ${i < 3 ? styles.top : ''}`}>
+                      {i + 1}
+                    </span>
+                    <p className={styles.commentText}>{comment}</p>
+                  </div>
+                ))}
               </div>
             )}
 

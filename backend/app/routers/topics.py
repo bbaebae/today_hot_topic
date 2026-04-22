@@ -103,6 +103,15 @@ async def get_topic(topic_id: str):
     except (json.JSONDecodeError, TypeError):
         summary = [raw_summary] if raw_summary else []
 
+    # top_comments_json 파싱
+    raw_comments = row.get("top_comments_json") or "[]"
+    try:
+        top_comments: list[str] = json.loads(raw_comments) if isinstance(raw_comments, str) else []
+        if not isinstance(top_comments, list):
+            top_comments = []
+    except (json.JSONDecodeError, TypeError):
+        top_comments = []
+
     # image_urls_json 파싱 + http→https 정규화 + 중복 제거
     raw_image_urls = row.get("image_urls_json") or "[]"
     try:
@@ -151,6 +160,7 @@ async def get_topic(topic_id: str):
         source_url=row.get("source_url", ""),
         body=row.get("body", ""),
         summary=summary,
+        top_comments=top_comments,
         poll={
             "id": poll_data.get("id", ""),
             "topic_id": topic_id,

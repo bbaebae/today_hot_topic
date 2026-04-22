@@ -52,7 +52,11 @@ async def run_ingestion() -> dict[str, int]:
 
     async def summarize_with_limit(post: CrawledPost) -> tuple[list[str], tuple[str, str]]:
         async with semaphore:
-            return await summarize(post.title, post.body, post.category, post.image_urls or None)
+            return await summarize(
+                post.title, post.body, post.category,
+                post.image_urls or None,
+                post.top_comments or None,
+            )
 
     results = await asyncio.gather(*[summarize_with_limit(p) for p in new_posts])
 
@@ -74,6 +78,7 @@ async def run_ingestion() -> dict[str, int]:
                 "source_url": post.url,
                 "image_url": post.image_url,
                 "image_urls_json": json.dumps(post.image_urls, ensure_ascii=False) if post.image_urls else None,
+                "top_comments_json": json.dumps(post.top_comments, ensure_ascii=False) if post.top_comments else None,
                 "view_count": min(post.view_count, 2_000_000_000),
                 "rank": 9999,
                 "body": post.body,

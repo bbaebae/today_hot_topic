@@ -15,6 +15,7 @@ _SYSTEM_PROMPT_COMMUNITY = """\
 1. 핵심 내용을 담은 문장 3개를 작성합니다 (각 40자 이내, 경어체 ~해요/~예요).
 2. 이 이슈의 핵심 쟁점에 맞는 찬반 투표 선택지 2개를 작성합니다 (각 15자 이내).
    - 선택지는 단순히 "찬성/반대"가 아니라 이슈의 맥락에 맞는 구체적인 표현이어야 합니다.
+   - 베스트 댓글이 제공되면 반드시 참고하여 실제 독자 반응을 반영한 선택지를 만드세요.
    - 예: 연봉 협상 이슈라면 "더 요구해야 해" / "지금도 충분해"
    - 예: 연예인 열애 이슈라면 "잘 어울려요" / "의외의 조합이에요"
 3. 특수문자나 마크다운은 사용하지 않습니다.
@@ -65,6 +66,7 @@ async def summarize(
     body: str,
     category: str = "story",
     image_urls: list[str] | None = None,
+    top_comments: list[str] | None = None,
 ) -> tuple[list[str], tuple[str, str]]:
     """
     게시물 제목과 본문을 받아 (3줄 요약, 투표 선택지 2개) 튜플을 반환합니다.
@@ -97,7 +99,11 @@ async def summarize(
             )
         else:
             content_part = f"\n\n본문:\n{body[:3000]}" if body.strip() else ""
-            prompt = f"제목: {title}{content_part}"
+            comments_part = ""
+            if top_comments:
+                comments_list = "\n".join(f"- {c}" for c in top_comments[:5])
+                comments_part = f"\n\n베스트 댓글:\n{comments_list}"
+            prompt = f"제목: {title}{content_part}{comments_part}"
             resp = await _client.chat.completions.create(
                 model=settings.openai_model,
                 messages=[

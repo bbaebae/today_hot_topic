@@ -357,7 +357,7 @@ async def _fetch_page(
             "div.view-content",
         ]
 
-    comments = [] if _is_news else _fetch_comments(soup, source)
+    comments = [] if _is_news else await _fetch_comments(soup, source, client=client, url=url)
 
     for sel in selectors:
         el = soup.select_one(sel)
@@ -395,16 +395,33 @@ async def _fetch_body(client: httpx.AsyncClient, url: str, source: str) -> str:
     return body
 
 
-def _fetch_comments(soup: BeautifulSoup, source: str) -> list[str]:
+async def _fetch_comments(
+    soup: BeautifulSoup, source: str,
+    client: httpx.AsyncClient | None = None, url: str = ""
+) -> list[str]:
     """커뮤니티 게시글의 베스트 댓글을 추출합니다. 실패 시 빈 리스트 반환."""
     candidates: list[str] = []
 
     if source == "pann":
-        # 네이트판: 댓글 본문 (.ply_info .txt_content or .cmmt_area li)
-        for el in soup.select(".ply_info .txt_content, .cmmt_area .txt_content, #talk_comment_list li .ply_txt"):
-            t = el.get_text(strip=True)
-            if t:
-                candidates.append(t)
+        # 네이트판: 댓글이 AJAX로 로드됨 → /talk/reply/loadBeple API 직접 호출
+        pann_id_match = re.search(r"/talk/(\d+)", url)
+        if pann_id_match and client:
+            pann_id = pann_id_match.group(1)
+            try:
+                resp = await client.post(
+                    "https://pann.nate.com/talk/reply/loadBeple",
+                    data={"pann_id": pann_id, "reply_page": "1"},
+                    headers={**_HEADERS, "X-Requested-With": "XMLHttpRequest",
+                              "Referer": url},
+                    timeout=10,
+                )
+                bepl_soup = BeautifulSoup(resp.text, "lxml")
+                for el in bepl_soup.select("dd.usertxt"):
+                    t = el.get_text(strip=True)
+                    if t:
+                        candidates.append(t)
+            except Exception:
+                pass
 
     elif source == "theqoo":
         for el in soup.select(".comment_body .xe_content, .fb-comment-item .comment_content"):
@@ -431,7 +448,8 @@ def _fetch_comments(soup: BeautifulSoup, source: str) -> list[str]:
                 candidates.append(t)
 
     elif source == "bobaedream":
-        for el in soup.select(".cmt_content, .cbh .bodyCont, #commentList li .bodyCont"):
+        # 보배드림: 베스트댓글은 id="bepl_small_cmt_*" 형태로 메인 HTML에 존재
+        for el in soup.select("[id^='bepl_small_cmt_']"):
             t = el.get_text(strip=True)
             if t:
                 candidates.append(t)

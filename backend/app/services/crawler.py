@@ -239,6 +239,16 @@ async def _fetch_page(
                 _collect_images(el, found_images)
                 return text[:3000], found_images[:10]
 
+        # 뉴시스: infoLine(등록일·이메일·프린트·폰트버튼) DOM 제거
+        if "newsis.com" in url:
+            el = soup.select_one("div.articleView div.view") or soup.select_one("div#articleView")
+            if el:
+                for junk in el.select("div.infoLine, div.link_list, div.reporter_area, div.keywords, aside, .relate_news"):
+                    junk.decompose()
+                text = _clean_news_body(el.get_text(separator="\n", strip=True))
+                _collect_images(el, found_images)
+                return text[:3000], found_images[:10]
+
         # 조선일보: JS-렌더링 페이지 → JSON-LD에서 이미지만 추출
         if "chosun.com" in url:
             import json as _json

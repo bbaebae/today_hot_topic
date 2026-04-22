@@ -246,8 +246,12 @@ async def _fetch_page(
                     if "img_people" in src or "ico_" in src:
                         img.decompose()
                 text = _clean_news_body(el.get_text(separator="\n", strip=True))
-                _collect_images(el, found_images)
-                return text[:3000], found_images[:10]
+                # og_image와 인라인 img URL 형식이 달라 중복 발생 → 기사 이미지만 수집, og_image는 fallback
+                segye_images: list[str] = []
+                _collect_images(el, segye_images)
+                if not segye_images and og_image:
+                    segye_images.append(og_image)
+                return text[:3000], segye_images[:10]
 
         # 뉴시스: infoLine(등록일·이메일·프린트·폰트버튼) DOM 제거
         if "newsis.com" in url:

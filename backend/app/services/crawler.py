@@ -17,7 +17,7 @@ import re
 from dataclasses import dataclass, field
 
 import httpx
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString, Tag
 
 from ..schemas.topic import Category
 
@@ -176,10 +176,68 @@ def _collect_images(el: object, found: list[str], max_count: int = 10) -> None:
             _add_image(norm, found)
 
 
+def _extract_rich_text(el: Tag) -> tuple[str, list[str]]:
+    """DOM 요소를 순회하여 텍스트와 [IMG:url] 마커가 원본 위치에 삽입된 문자열을 반환합니다."""
+    parts: list[str] = []
+    images: list[str] = []
+    seen_bases: set[str] = set()
+    BLOCK_TAGS = {"p", "div", "br", "h1", "h2", "h3", "h4", "h5", "li", "tr", "figure", "blockquote", "section"}
+
+    def _get_img_src(img_tag: Tag) -> str | None:
+        src = (
+            img_tag.get("data-original", "")
+            or img_tag.get("data-src", "")
+            or img_tag.get("data-lazy-src", "")
+            or img_tag.get("data-lazy", "")
+            or img_tag.get("data-url", "")
+            or img_tag.get("src", "")
+        )
+        return _normalize_url(src) if src else None
+
+    def walk(node: NavigableString | Tag) -> None:
+        if isinstance(node, NavigableString):
+            t = str(node)
+            if t.strip():
+                parts.append(t)
+            return
+        if not isinstance(node, Tag):
+            return
+        if node.name in ("script", "style", "noscript"):
+            return
+        if node.name == "img":
+            if len(images) >= 10:
+                return
+            norm = _get_img_src(node)
+            if norm and _is_content_image(norm):
+                base = _base_url(norm)
+                if base not in seen_bases:
+                    seen_bases.add(base)
+                    parts.append(f"\n[IMG:{norm}]\n")
+                    images.append(norm)
+            return
+        is_block = node.name in BLOCK_TAGS
+        if is_block:
+            parts.append("\n")
+        for child in node.children:
+            walk(child)
+        if is_block:
+            parts.append("\n")
+
+    for child in el.children:
+        walk(child)
+
+    text = "".join(parts)
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip(), images
+
+
 async def _fetch_page(
     client: httpx.AsyncClient, url: str, source: str
 ) -> tuple[str, list[str], list[str]]:
-    """소스별 상세 페이지에서 (본문, 이미지 URL 리스트, 베스트댓글 리스트)를 추출합니다."""
+    """소스별 상세 페이지에서 (본문+인라인이미지마커, 이미지 URL 리스트, 베스트댓글 리스트)를 추출합니다.
+    본문에는 이미지 원본 위치에 [IMG:url] 마커가 삽입됩니다.
+    """
     try:
         resp = await client.get(url, headers=_HEADERS, timeout=_BODY_TIMEOUT)
         resp.raise_for_status()
@@ -188,15 +246,25 @@ async def _fetch_page(
 
     soup = BeautifulSoup(resp.text, "lxml")
     og_image = _extract_og_image(soup)
-    found_images: list[str] = []
-    if og_image and _is_content_image(og_image):
-        found_images.append(og_image)
+
+    _is_news = source in ("naver_news", "rss_news")
+
+    def _finalize(el: Tag, is_news: bool, og: str | None, comments: list[str]) -> tuple[str, list[str], list[str]]:
+        """junk 제거 후 rich text 추출 + og_image fallback 처리."""
+        text, images = _extract_rich_text(el)
+        if is_news:
+            text = _clean_news_body(text)
+        # 인라인 이미지가 없으면 og_image를 맨 앞에 삽입
+        if not images and og and _is_content_image(og):
+            text = f"[IMG:{og}]\n\n{text}" if text else f"[IMG:{og}]"
+            images = [og]
+        return text[:6000], images[:10], comments
 
     selectors: list[str] = []
     if source == "pann":
         selectors = [
-            "div#contentArea",         # 네이트판 메인 콘텐츠 영역 (이미지 포함)
-            "div.se-main-container",   # Naver SmartEditor3
+            "div#contentArea",
+            "div.se-main-container",
             "div.post_cont",
             "div.view_content",
             "div.talk_cont",
@@ -211,7 +279,7 @@ async def _fetch_page(
         selectors = ["div.view-content", "div#post-content", "div.article-body"]
     elif source == "bobaedream":
         selectors = [
-            "div.bodyCont",          # 실제 본문 컨테이너 (itemprop=articleBody)
+            "div.bodyCont",
             "div.bobaContents",
             "div.boba-content",
             "div.view_cont",
@@ -227,12 +295,11 @@ async def _fetch_page(
             "div#container div.write_div",
             "div.inner.clear",
         ]
-    elif source in ("naver_news", "rss_news"):
+    elif _is_news:
         # 세계일보: div#mcontent는 사이드바·광고 포함 → article.viewBox2만 사용
         if "segye.com" in url:
             el = soup.select_one("article.viewBox2") or soup.select_one("div#article_txt")
             if el:
-                # 기자 카드·날짜·공유·폰트 영역 제거
                 for junk in el.select(
                     "div.newsct_journalist, div.media_journalistcard_item, "
                     "div.media_end_head_journalist_thumb, "
@@ -240,57 +307,41 @@ async def _fetch_page(
                     "aside, .relate_news, .related"
                 ):
                     junk.decompose()
-                # 기자 프로필 플레이스홀더 이미지 제거
                 for img in el.find_all("img"):
                     src = img.get("src", "") or ""
                     if "img_people" in src or "ico_" in src:
                         img.decompose()
-                text = _clean_news_body(el.get_text(separator="\n", strip=True))
-                # og_image와 인라인 img URL 형식이 달라 중복 발생 → 기사 이미지만 수집, og_image는 fallback
-                segye_images: list[str] = []
-                _collect_images(el, segye_images)
-                if not segye_images and og_image:
-                    segye_images.append(og_image)
-                return text[:3000], segye_images[:10], []
+                return _finalize(el, True, og_image, [])
 
-        # 뉴시스: infoLine(등록일·이메일·프린트·폰트버튼) DOM 제거
+        # 뉴시스
         if "newsis.com" in url:
             el = soup.select_one("div.articleView div.view") or soup.select_one("div#articleView")
             if el:
                 for junk in el.select("div.infoLine, div.link_list, div.reporter_area, div.keywords, aside, .relate_news"):
                     junk.decompose()
-                text = _clean_news_body(el.get_text(separator="\n", strip=True))
-                _collect_images(el, found_images)
-                return text[:3000], found_images[:10], []
+                return _finalize(el, True, og_image, [])
 
-        # 조선일보: section.article-body에 본문·이미지 포함
+        # 조선일보
         if "chosun.com" in url:
             el = soup.select_one("section.article-body") or soup.select_one("section[itemprop='articleBody']")
             if el:
-                # 광고 블록 제거
                 for junk in el.select("div.arcad-wrapper, div.dfpAd, aside, .relate_news"):
                     junk.decompose()
-                text = _clean_news_body(el.get_text(separator="\n", strip=True))
-                _collect_images(el, found_images)
-                return text[:3000], found_images[:10], []
+                return _finalize(el, True, og_image, [])
 
         selectors = [
-            # 네이버 뉴스 최신 (n.news.naver.com)
             "div#dic_area",
             "div.newsct_article",
             "article#dic_area",
-            # 네이버 뉴스 구형
             "div._article_body_contents",
             "div#articleBodyContents",
-            # 언론사별 특정 선택자 (우선순위 높음)
-            "div.articleView div.view",  # 뉴시스 (본문 영역만, viewBottom 광고/배너 제외)
-            "div.main_view",             # 동아일보
-            "div.art_body",              # 경향신문
-            "div#articleBody",           # 경향신문 (id 방식)
-            "div#content",               # 한겨레
-            "div.view_article",          # 서울신문
-            "div.article_view",          # 서울신문 구형
-            # 외부 언론사 공통 패턴
+            "div.articleView div.view",
+            "div.main_view",
+            "div.art_body",
+            "div#articleBody",
+            "div#content",
+            "div.view_article",
+            "div.article_view",
             "div.article_body",
             "div.article-body",
             "div.article-content",
@@ -301,41 +352,41 @@ async def _fetch_page(
             "div#articeBody",
             "div.article_txt",
             "section.article-body",
-            # 추가 패턴
             "div#articleText",
             "div#news_body_area",
             "div.view-content",
         ]
 
-    _is_news = source in ("naver_news", "rss_news")
+    comments = [] if _is_news else _fetch_comments(soup, source)
 
     for sel in selectors:
         el = soup.select_one(sel)
         if el:
-            text = el.get_text(separator="\n", strip=True)
-            has_images = bool(el.find("img"))
-            # 텍스트가 짧아도 이미지가 있으면 본문 컨테이너로 인정
-            if len(text) > 50 or has_images:
-                _collect_images(el, found_images)
+            text, images = _extract_rich_text(el)
+            if len(text.replace("\n", "").strip()) > 50 or images:
                 if _is_news:
                     text = _clean_news_body(text)
-                comments = [] if _is_news else _fetch_comments(soup, source)
-                return text[:3000], found_images[:10], comments
+                if not images and og_image and _is_content_image(og_image):
+                    text = f"[IMG:{og_image}]\n\n{text}" if text else f"[IMG:{og_image}]"
+                    images = [og_image]
+                return text[:6000], images[:10], comments
 
     # 마지막 fallback: <article> 태그
     el = soup.find("article")
     if el:
-        text = el.get_text(separator="\n", strip=True)
-        has_images = bool(el.find("img"))
-        if len(text) > 50 or has_images:
-            _collect_images(el, found_images)
+        text, images = _extract_rich_text(el)
+        if len(text.replace("\n", "").strip()) > 50 or images:
             if _is_news:
                 text = _clean_news_body(text)
-            comments = [] if _is_news else _fetch_comments(soup, source)
-            return text[:3000], found_images[:10], comments
+            if not images and og_image and _is_content_image(og_image):
+                text = f"[IMG:{og_image}]\n\n{text}" if text else f"[IMG:{og_image}]"
+                images = [og_image]
+            return text[:6000], images[:10], comments
 
-    comments = [] if _is_news else _fetch_comments(soup, source)
-    return "", found_images[:10], comments
+    # og_image만 있는 경우
+    if og_image and _is_content_image(og_image):
+        return f"[IMG:{og_image}]", [og_image], comments
+    return "", [], comments
 
 
 # 하위호환 래퍼 (news_crawler.py에서 사용)

@@ -70,6 +70,33 @@
   word-break: keep-all;
 }
 
+/* 인라인 이미지가 포함된 리치 본문 */
+.richBody {
+  margin: 0 0 8px;
+  background: #ffffff;
+}
+
+.richBody p {
+  padding: 0 20px;
+  font-size: 15px;
+  color: var(--color-gray-800);
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: keep-all;
+  margin: 0;
+}
+
+.richBody p + p {
+  margin-top: 4px;
+}
+
+.inlineImage {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin: 8px 0;
+}
+
 .limitBanner {
   margin: 0 20px 12px;
   padding: 12px 16px;

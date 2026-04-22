@@ -8,6 +8,41 @@ import { SummaryCard } from '../components/detail/SummaryCard';
 import { PollSection } from '../components/detail/PollSection';
 import styles from './DetailPage.module.css';
 
+const IMG_MARKER_RE = /(\[IMG:[^\]]+\])/;
+
+function hasInlineImages(body: string) {
+  return body?.includes('[IMG:');
+}
+
+function RichBody({ body }: { body: string }) {
+  const segments = body.split(IMG_MARKER_RE);
+  return (
+    <div className={styles.richBody}>
+      {segments.map((seg, i) => {
+        const match = seg.match(/^\[IMG:(.+)\]$/);
+        if (match) {
+          return (
+            <img
+              key={i}
+              src={match[1]}
+              alt=""
+              className={styles.inlineImage}
+              referrerPolicy="no-referrer"
+            />
+          );
+        }
+        const text = seg.trim();
+        if (!text) return null;
+        return (
+          <p key={i} className={styles.bodyText}>
+            {text}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 function DetailSkeleton() {
   return (
     <div className={styles.skeleton}>
@@ -78,21 +113,6 @@ export default function DetailPage() {
               <h2 className={styles.title}>{topic.title}</h2>
             </div>
 
-            {/* 이미지 목록 */}
-            {(topic.imageUrls?.length > 0 || topic.imageUrl) && (
-              <div className={styles.imageList}>
-                {(topic.imageUrls?.length > 0 ? topic.imageUrls : [topic.imageUrl]).filter(Boolean).map((url, i) => (
-                  <img
-                    key={i}
-                    src={url!}
-                    alt={`${topic.title} 이미지 ${i + 1}`}
-                    className={styles.image}
-                    referrerPolicy="no-referrer"
-                  />
-                ))}
-              </div>
-            )}
-
             {/* AI 3줄 요약 */}
             <SummaryCard
               summaries={topic.summary}
@@ -118,11 +138,33 @@ export default function DetailPage() {
               </div>
             )}
 
-            {/* 본문 */}
-            {(!isStory || !hasComments || activeTab === 'body') && topic.body && (
-              <div className={styles.bodySection}>
-                <p className={styles.bodyText}>{topic.body}</p>
-              </div>
+            {/* 본문 (인라인 이미지 포함) */}
+            {(!isStory || !hasComments || activeTab === 'body') && (
+              topic.body && hasInlineImages(topic.body) ? (
+                <RichBody body={topic.body} />
+              ) : (
+                <>
+                  {/* 레거시: 이미지 상단 고정 (인라인 마커 없는 구 데이터) */}
+                  {(topic.imageUrls?.length > 0 || topic.imageUrl) && (
+                    <div className={styles.imageList}>
+                      {(topic.imageUrls?.length > 0 ? topic.imageUrls : [topic.imageUrl]).filter(Boolean).map((url, i) => (
+                        <img
+                          key={i}
+                          src={url!}
+                          alt={`${topic.title} 이미지 ${i + 1}`}
+                          className={styles.image}
+                          referrerPolicy="no-referrer"
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {topic.body && (
+                    <div className={styles.bodySection}>
+                      <p className={styles.bodyText}>{topic.body}</p>
+                    </div>
+                  )}
+                </>
+              )
             )}
 
             {/* 베스트댓글 */}

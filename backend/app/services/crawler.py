@@ -192,7 +192,9 @@ def _extract_rich_text(el: Tag) -> tuple[str, list[str]]:
             or img_tag.get("data-url", "")
             or img_tag.get("src", "")
         )
-        return _normalize_url(src) if src else None
+        norm = _normalize_url(src) if src else None
+        # pann thumb URL 언래핑: thumb.pann.com/tc_WxH/ORIGINAL_URL → ORIGINAL_URL
+        return _unwrap_thumb(norm) if norm else None
 
     def walk(node: NavigableString | Tag) -> None:
         if isinstance(node, NavigableString):
@@ -254,8 +256,12 @@ async def _fetch_page(
         text, images = _extract_rich_text(el)
         if is_news:
             text = _clean_news_body(text)
-        # 인라인 이미지가 없으면 og_image를 맨 앞에 삽입
-        if not images and og and _is_content_image(og):
+        # 뉴스: 인라인 이미지가 없으면 og_image를 imageUrls에만 추가 (body에는 삽입 안 함)
+        # → 프론트에서 레거시 상단 배치로 자동 처리됨
+        if is_news and not images and og and _is_content_image(og):
+            images = [og]
+        # 커뮤니티(story): 인라인 이미지 없으면 og_image를 body 맨 앞에 마커로 삽입
+        if not is_news and not images and og and _is_content_image(og):
             text = f"[IMG:{og}]\n\n{text}" if text else f"[IMG:{og}]"
             images = [og]
         return text[:6000], images[:10], comments
@@ -366,9 +372,14 @@ async def _fetch_page(
             if len(text.replace("\n", "").strip()) > 50 or images:
                 if _is_news:
                     text = _clean_news_body(text)
-                if not images and og_image and _is_content_image(og_image):
-                    text = f"[IMG:{og_image}]\n\n{text}" if text else f"[IMG:{og_image}]"
-                    images = [og_image]
+                    # 뉴스: og_image를 imageUrls에만 (body에 삽입 안 함)
+                    if not images and og_image and _is_content_image(og_image):
+                        images = [og_image]
+                else:
+                    # 커뮤니티: og_image를 body 마커로 삽입
+                    if not images and og_image and _is_content_image(og_image):
+                        text = f"[IMG:{og_image}]\n\n{text}" if text else f"[IMG:{og_image}]"
+                        images = [og_image]
                 return text[:6000], images[:10], comments
 
     # 마지막 fallback: <article> 태그
@@ -378,13 +389,18 @@ async def _fetch_page(
         if len(text.replace("\n", "").strip()) > 50 or images:
             if _is_news:
                 text = _clean_news_body(text)
-            if not images and og_image and _is_content_image(og_image):
-                text = f"[IMG:{og_image}]\n\n{text}" if text else f"[IMG:{og_image}]"
-                images = [og_image]
+                if not images and og_image and _is_content_image(og_image):
+                    images = [og_image]
+            else:
+                if not images and og_image and _is_content_image(og_image):
+                    text = f"[IMG:{og_image}]\n\n{text}" if text else f"[IMG:{og_image}]"
+                    images = [og_image]
             return text[:6000], images[:10], comments
 
-    # og_image만 있는 경우
+    # og_image만 있는 경우 (커뮤니티: 마커 삽입, 뉴스: imageUrls에만)
     if og_image and _is_content_image(og_image):
+        if _is_news:
+            return "", [og_image], comments
         return f"[IMG:{og_image}]", [og_image], comments
     return "", [], comments
 

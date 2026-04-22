@@ -19,23 +19,26 @@ function RichBody({ body }: { body: string }) {
   return (
     <div className={styles.richBody}>
       {segments.map((seg, i) => {
-        const match = seg.match(/^\[IMG:(.+)\]$/);
-        if (match) {
-          return (
-            <img
-              key={i}
-              src={match[1]}
-              alt=""
-              className={styles.inlineImage}
-              referrerPolicy="no-referrer"
-            />
-          );
+        const trimmed = seg.trim();
+        // [IMG:url] 마커 판별: trim 후 startsWith/endsWith로 체크 (정규식 newline 이슈 방지)
+        if (trimmed.startsWith('[IMG:') && trimmed.endsWith(']')) {
+          const src = trimmed.slice(5, -1).trim();
+          if (src) {
+            return (
+              <img
+                key={i}
+                src={src}
+                alt=""
+                className={styles.inlineImage}
+                referrerPolicy="no-referrer"
+              />
+            );
+          }
         }
-        const text = seg.trim();
-        if (!text) return null;
+        if (!trimmed) return null;
         return (
           <p key={i} className={styles.bodyText}>
-            {text}
+            {trimmed}
           </p>
         );
       })}

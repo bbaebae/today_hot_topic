@@ -232,9 +232,19 @@ async def _fetch_page(
         if "segye.com" in url:
             el = soup.select_one("article.viewBox2") or soup.select_one("div#article_txt")
             if el:
-                # 기자 카드(이미지·이메일 포함) 제거 후 수집
-                for junk in el.select("div.newsct_journalist, div.media_journalistcard_item, aside, .relate_news, .related"):
+                # 기자 카드·날짜·공유·폰트 영역 제거
+                for junk in el.select(
+                    "div.newsct_journalist, div.media_journalistcard_item, "
+                    "div.media_end_head_journalist_thumb, "
+                    "div.viewInfo, div.viewHelp, "
+                    "aside, .relate_news, .related"
+                ):
                     junk.decompose()
+                # 기자 프로필 플레이스홀더 이미지 제거
+                for img in el.find_all("img"):
+                    src = img.get("src", "") or ""
+                    if "img_people" in src or "ico_" in src:
+                        img.decompose()
                 text = _clean_news_body(el.get_text(separator="\n", strip=True))
                 _collect_images(el, found_images)
                 return text[:3000], found_images[:10]

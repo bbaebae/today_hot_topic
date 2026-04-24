@@ -235,7 +235,7 @@ async def crawl_news() -> list[CrawledPost]:
 
         async def fill_body(post: CrawledPost) -> None:
             async with sem:
-                body, fetched_images = await _fetch_page(client, post.url, "rss_news")
+                body, fetched_images, _ = await _fetch_page(client, post.url, "rss_news")
                 # fetch한 본문이 더 길면 교체 (RSS 설명보다 실제 기사 본문 우선)
                 if body and len(body) > len(post.body or ""):
                     post.body = body

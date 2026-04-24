@@ -41,4 +41,4 @@ app.include_router(admin.router,   prefix="/api/v1/admin",   tags=["admin"])
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "v": "8560e0d"}
+    return {"status": "ok", "v": "7368929"}

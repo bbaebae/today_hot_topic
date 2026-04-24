@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useTopicDetail } from '../hooks/useTopicDetail';
@@ -67,14 +66,12 @@ function DetailSkeleton() {
 export default function DetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'body' | 'comments'>('body');
 
   const { topic, isLoading, error, hasVoted, votedOption, markVoted } =
     useTopicDetail(id ?? '');
   const { submit, isSubmitting } = useVote();
 
   const hasComments = (topic?.topComments?.length ?? 0) > 0;
-  const isStory = topic?.category === 'story';
 
   const handleVote = async (option: 'A' | 'B') => {
     if (!topic) return;
@@ -111,77 +108,60 @@ export default function DetailPage() {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.2 }}
           >
-            {/* 헤더 영역 */}
-            <div className={styles.topicHeader}>
-              <h2 className={styles.title}>{topic.title}</h2>
-            </div>
-
-            {/* AI 3줄 요약 */}
+            {/* AI 3줄 요약 — 제일 위 */}
             <SummaryCard
               summaries={topic.summary}
               sourceUrl={topic.sourceUrl}
               createdAt={topic.createdAt}
             />
 
-            {/* 썰 카테고리: 본문/베스트댓글 탭 */}
-            {isStory && hasComments && (
-              <div className={styles.tabBar}>
-                <button
-                  className={`${styles.tabButton} ${activeTab === 'body' ? styles.active : ''}`}
-                  onClick={() => setActiveTab('body')}
-                >
-                  본문
-                </button>
-                <button
-                  className={`${styles.tabButton} ${activeTab === 'comments' ? styles.active : ''}`}
-                  onClick={() => setActiveTab('comments')}
-                >
-                  베스트댓글
-                </button>
-              </div>
-            )}
+            {/* 헤더 영역 */}
+            <div className={styles.topicHeader}>
+              <h2 className={styles.title}>{topic.title}</h2>
+            </div>
 
             {/* 본문 (인라인 이미지 포함) */}
-            {(!isStory || !hasComments || activeTab === 'body') && (
-              topic.body && hasInlineImages(topic.body) ? (
-                <RichBody body={topic.body} />
-              ) : (
-                <>
-                  {/* 레거시: 이미지 상단 고정 (인라인 마커 없는 구 데이터) */}
-                  {(topic.imageUrls?.length > 0 || topic.imageUrl) && (
-                    <div className={styles.imageList}>
-                      {(topic.imageUrls?.length > 0 ? topic.imageUrls : [topic.imageUrl]).filter(Boolean).map((url, i) => (
-                        <img
-                          key={i}
-                          src={url!}
-                          alt={`${topic.title} 이미지 ${i + 1}`}
-                          className={styles.image}
-                          referrerPolicy="no-referrer"
-                        />
-                      ))}
-                    </div>
-                  )}
-                  {topic.body && (
-                    <div className={styles.bodySection}>
-                      <p className={styles.bodyText}>{topic.body}</p>
-                    </div>
-                  )}
-                </>
-              )
+            {topic.body && hasInlineImages(topic.body) ? (
+              <RichBody body={topic.body} />
+            ) : (
+              <>
+                {/* 레거시: 이미지 상단 고정 (인라인 마커 없는 구 데이터) */}
+                {(topic.imageUrls?.length > 0 || topic.imageUrl) && (
+                  <div className={styles.imageList}>
+                    {(topic.imageUrls?.length > 0 ? topic.imageUrls : [topic.imageUrl]).filter(Boolean).map((url, i) => (
+                      <img
+                        key={i}
+                        src={url!}
+                        alt={`${topic.title} 이미지 ${i + 1}`}
+                        className={styles.image}
+                        referrerPolicy="no-referrer"
+                      />
+                    ))}
+                  </div>
+                )}
+                {topic.body && (
+                  <div className={styles.bodySection}>
+                    <p className={styles.bodyText}>{topic.body}</p>
+                  </div>
+                )}
+              </>
             )}
 
-            {/* 베스트댓글 */}
-            {isStory && hasComments && activeTab === 'comments' && (
-              <div className={styles.commentList}>
-                {topic.topComments!.map((comment, i) => (
-                  <div key={i} className={styles.commentItem}>
-                    <span className={`${styles.commentRank} ${i < 3 ? styles.top : ''}`}>
-                      {i + 1}
-                    </span>
-                    <p className={styles.commentText}>{comment}</p>
-                  </div>
-                ))}
-              </div>
+            {/* 베스트댓글 — 본문 아래 항상 표시 */}
+            {hasComments && (
+              <>
+                <div className={styles.commentSectionHeader}>베스트 댓글</div>
+                <div className={styles.commentList}>
+                  {topic.topComments!.map((comment, i) => (
+                    <div key={i} className={styles.commentItem}>
+                      <span className={`${styles.commentRank} ${i < 3 ? styles.top : ''}`}>
+                        {i + 1}
+                      </span>
+                      <p className={styles.commentText}>{comment}</p>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
 
             <div className={styles.bottomSpacer} />

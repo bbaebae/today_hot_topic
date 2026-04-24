@@ -1,3 +1,4 @@
+// v2: RichBody inline image rendering
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useTopicDetail } from '../hooks/useTopicDetail';

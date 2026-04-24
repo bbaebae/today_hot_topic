@@ -326,12 +326,12 @@ async def refresh_source_bodies(
             async with sem:
                 try:
                     async with httpx.AsyncClient(follow_redirects=True) as c:
-                        body, images, _ = await _fetch_page(c, url, src)
+                        body, images, comments = await _fetch_page(c, url, src)
                 except Exception as e:
                     logger.error("refresh: %s 실패: %s", url, e)
                     return
 
-            if not body and not images:
+            if not body and not images and not comments:
                 return
 
             update: dict = {}
@@ -340,10 +340,12 @@ async def refresh_source_bodies(
             if images:
                 update["image_urls_json"] = json.dumps(images, ensure_ascii=False)
                 update["image_url"] = images[0]
+            if comments:
+                update["top_comments_json"] = json.dumps(comments, ensure_ascii=False)
 
             try:
                 client.table("topics").update(update).eq("id", row["id"]).execute()
-                logger.info("refresh: %s 완료 (body %d자, 이미지 %d개)", row["id"], len(body), len(images))
+                logger.info("refresh: %s 완료 (body %d자, 이미지 %d개, 댓글 %d개)", row["id"], len(body), len(images), len(comments))
             except Exception as e:
                 logger.error("refresh: %s 업데이트 실패: %s", row["id"], e)
 
@@ -352,6 +354,77 @@ async def refresh_source_bodies(
 
     background_tasks.add_task(_run)
     return {"ok": True, "message": f"{source} 토픽 body 재수집 시작"}
+
+
+@router.post("/refresh-community")
+async def refresh_community(
+    background_tasks: BackgroundTasks,
+    x_admin_key: str | None = Header(None),
+):
+    """모든 커뮤니티(story) 토픽의 body·이미지·베스트댓글을 일괄 재수집합니다."""
+    _verify(x_admin_key)
+
+    async def _run():
+        import asyncio
+        import json
+        import logging
+        import httpx
+        from ..database import db
+        from ..services.crawler import _fetch_page
+
+        logger = logging.getLogger(__name__)
+        client = db()
+
+        community_sources = ["pann", "theqoo", "instiz", "todayhumor", "gaeddip",
+                             "bobaedream", "mlbpark", "dcinside", "fmkorea"]
+        res = (
+            client.table("topics")
+            .select("id, source_url, source")
+            .in_("source", community_sources)
+            .limit(200)
+            .execute()
+        )
+        rows = res.data or []
+        logger.info("refresh-community: 커뮤니티 토픽 %d개 재수집 시작", len(rows))
+
+        sem = asyncio.Semaphore(3)
+
+        async def refresh(row: dict) -> None:
+            url = row.get("source_url", "")
+            src = row.get("source", "pann")
+            if not url:
+                return
+            async with sem:
+                try:
+                    async with httpx.AsyncClient(follow_redirects=True) as c:
+                        body, images, comments = await _fetch_page(c, url, src)
+                except Exception as e:
+                    logger.error("refresh-community: %s 실패: %s", url[:60], e)
+                    return
+
+            if not body and not images and not comments:
+                return
+
+            update: dict = {}
+            if body:
+                update["body"] = body
+            if images:
+                update["image_urls_json"] = json.dumps(images, ensure_ascii=False)
+                update["image_url"] = images[0]
+            if comments:
+                update["top_comments_json"] = json.dumps(comments, ensure_ascii=False)
+
+            try:
+                client.table("topics").update(update).eq("id", row["id"]).execute()
+                logger.info("refresh-community: %s 완료 (댓글 %d개)", row["id"], len(comments))
+            except Exception as e:
+                logger.error("refresh-community: %s 실패: %s", row["id"], e)
+
+        await asyncio.gather(*[refresh(r) for r in rows], return_exceptions=True)
+        logger.info("refresh-community: 완료")
+
+    background_tasks.add_task(_run)
+    return {"ok": True, "message": "커뮤니티 토픽 body·이미지·댓글 일괄 재수집 시작"}
 
 
 @router.post("/reset-source")

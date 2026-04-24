@@ -136,11 +136,20 @@ def _clean_news_body(text: str) -> str:
 
 
 def _is_content_image(url: str) -> bool:
-    """콘텐츠 이미지인지 판별합니다 (아이콘/로고/광고 제외)."""
+    """콘텐츠 이미지인지 판별합니다 (아이콘/로고/광고/사이트 기본 썸네일 제외)."""
     low = url.lower()
-    exclude = ("logo", "icon", "banner", "ad_", "/ads/", "advertisement",
-               "spinner", "loading", "pixel", "tracking", "beacon",
-               "1x1", "spacer", "blank")
+    exclude = (
+        "logo", "icon", "banner", "ad_", "/ads/", "advertisement",
+        "spinner", "loading", "pixel", "tracking", "beacon",
+        "1x1", "spacer", "blank",
+        # 커뮤니티 사이트 기본 OG/썸네일 이미지
+        "og-talk",          # pann 기본 OG (img.pann.com/images/og-talk.png)
+        "img.pann.com/images/",  # pann 사이트 이미지 (유저 콘텐츠는 fimg6.pann.com)
+        "noimg", "no_img", "no-img",
+        "default_thumb", "defaultthumb",
+        "og_default", "default_og",
+        "thumb_default",
+    )
     return not any(p in low for p in exclude)
 
 

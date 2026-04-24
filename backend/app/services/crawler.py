@@ -354,13 +354,19 @@ async def _fetch_page(
                     junk.decompose()
                 return _finalize(el, True, og_image, [])
 
-        # 조선일보
+        # 조선일보 (Fusion CMS – JS 렌더링이라 article selector 비어있음)
         if "chosun.com" in url:
             el = soup.select_one("section.article-body") or soup.select_one("section[itemprop='articleBody']")
             if el:
                 for junk in el.select("div.arcad-wrapper, div.dfpAd, aside, .relate_news"):
                     junk.decompose()
                 return _finalize(el, True, og_image, [])
+            # JS-render fallback: meta description 사용 (full body 불가)
+            meta_desc = soup.find("meta", attrs={"name": "description"})
+            desc_content = (meta_desc.get("content", "") if meta_desc else "").strip()
+            if len(desc_content) > 20:
+                images = [og_image] if og_image and _is_content_image(og_image) else []
+                return desc_content[:1000], images, []
 
         selectors = [
             "div#dic_area",

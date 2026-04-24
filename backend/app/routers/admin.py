@@ -408,8 +408,9 @@ async def refresh_community(
             update: dict = {}
             if body:
                 update["body"] = body
+            # 항상 image_urls_json 업데이트 (빈 경우 null로 초기화 — 구 스테일 데이터 제거)
+            update["image_urls_json"] = json.dumps(images, ensure_ascii=False) if images else None
             if images:
-                update["image_urls_json"] = json.dumps(images, ensure_ascii=False)
                 update["image_url"] = images[0]
             if comments:
                 update["top_comments_json"] = json.dumps(comments, ensure_ascii=False)

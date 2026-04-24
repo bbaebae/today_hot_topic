@@ -135,6 +135,24 @@ def _clean_news_body(text: str) -> str:
     return '\n'.join(cleaned).strip()
 
 
+_COMMUNITY_JUNK_PATTERNS = [
+    re.compile(r'espresso\s+editor\s+content\s+(start|end)', re.IGNORECASE),
+    re.compile(r'^\s*\[?(스마트에디터|Smart\s*Editor)\]?\s*$', re.IGNORECASE),
+]
+
+
+def _clean_community_body(text: str) -> str:
+    """커뮤니티 본문에서 에디터 메타데이터(espresso editor 등) 불필요한 텍스트를 제거합니다."""
+    lines = text.split('\n')
+    cleaned = []
+    for line in lines:
+        stripped = line.strip()
+        if any(pat.search(stripped) for pat in _COMMUNITY_JUNK_PATTERNS):
+            continue
+        cleaned.append(line)
+    return '\n'.join(cleaned).strip()
+
+
 def _is_content_image(url: str) -> bool:
     """콘텐츠 이미지인지 판별합니다 (아이콘/로고/광고/사이트 기본 썸네일 제외)."""
     low = url.lower()
@@ -385,7 +403,8 @@ async def _fetch_page(
                     if not images and og_image and _is_content_image(og_image):
                         images = [og_image]
                 else:
-                    # 커뮤니티: og_image를 body 마커로 삽입
+                    # 커뮤니티: 에디터 아티팩트 제거 후 og_image 마커 삽입
+                    text = _clean_community_body(text)
                     if not images and og_image and _is_content_image(og_image):
                         text = f"[IMG:{og_image}]\n\n{text}" if text else f"[IMG:{og_image}]"
                         images = [og_image]
@@ -401,6 +420,7 @@ async def _fetch_page(
                 if not images and og_image and _is_content_image(og_image):
                     images = [og_image]
             else:
+                text = _clean_community_body(text)
                 if not images and og_image and _is_content_image(og_image):
                     text = f"[IMG:{og_image}]\n\n{text}" if text else f"[IMG:{og_image}]"
                     images = [og_image]

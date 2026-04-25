@@ -1126,43 +1126,39 @@ class DcinsideCrawler:
 # ---------------------------------------------------------------------------
 
 class FmkoreaCrawler:
-    _URL = "https://www.fmkorea.com/best"
+    """펨코 베스트2 크롤러 — httpx로 정적 HTML 파싱 (Playwright 불필요)."""
+    _URL = "https://www.fmkorea.com/best2"
 
     async def fetch(self, client: httpx.AsyncClient) -> list[CrawledPost]:
-        if not _PLAYWRIGHT_AVAILABLE:
-            return []  # Vercel 환경에서는 스킵
         try:
-            async with async_playwright() as p:  # type: ignore[name-defined]
-                browser = await p.chromium.launch(headless=True)
-                page = await browser.new_page()
-                await page.goto(self._URL, timeout=20000)
-                await page.wait_for_timeout(2000)
-                html = await page.content()
-                await browser.close()
+            resp = await client.get(self._URL, headers=_HEADERS, timeout=_TIMEOUT)
+            resp.raise_for_status()
         except Exception:
             return []
 
-        soup = BeautifulSoup(html, "lxml")
+        soup = BeautifulSoup(resp.text, "lxml")
         posts: list[CrawledPost] = []
         seen: set[str] = set()
 
-        for a in soup.select("a"):
+        for h3 in soup.select("h3.title"):
+            a = h3.select_one("a[href]")
+            if not a:
+                continue
             href = a.get("href", "")
-            title = a.get_text(strip=True)
-            if not title or len(title) < 5:
-                continue
-            # 공지/자료 글 제외
-            if re.match(r"^\[통합\]|\[20\d\d자료", title):
-                continue
-            match = re.search(r"/(\d{9,})", href)
+            match = re.search(r"/best2/(\d{9,})", href)
             if not match:
                 continue
             ext_id = match.group(1)
             if ext_id in seen:
                 continue
-            seen.add(ext_id)
 
-            full_url = href if href.startswith("http") else f"https://www.fmkorea.com{href}"
+            span = a.select_one("span.ellipsis-target")
+            title = span.get_text(strip=True) if span else a.get_text(strip=True)
+            if not title or len(title) < 5:
+                continue
+
+            seen.add(ext_id)
+            full_url = f"https://www.fmkorea.com{href}"
             posts.append(CrawledPost(
                 source="fmkorea",
                 external_id=ext_id,
@@ -1195,6 +1191,7 @@ async def crawl_all() -> list[CrawledPost]:
     crawlers = [
         PannCrawler(),
         BobaedreamCrawler(),
+        FmkoreaCrawler(),
     ]
     async with httpx.AsyncClient(follow_redirects=True) as client:
         results = await asyncio.gather(

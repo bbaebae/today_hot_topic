@@ -109,17 +109,17 @@ export default function DetailPage() {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.2 }}
           >
-            {/* AI 3줄 요약 — 제일 위 */}
+            {/* 헤더 영역 */}
+            <div className={styles.topicHeader}>
+              <h2 className={styles.title}>{topic.title}</h2>
+            </div>
+
+            {/* AI 3줄 요약 */}
             <SummaryCard
               summaries={topic.summary}
               sourceUrl={topic.sourceUrl}
               createdAt={topic.createdAt}
             />
-
-            {/* 헤더 영역 */}
-            <div className={styles.topicHeader}>
-              <h2 className={styles.title}>{topic.title}</h2>
-            </div>
 
             {/* 본문 (인라인 이미지 포함) */}
             {topic.body && hasInlineImages(topic.body) ? (
@@ -148,8 +148,8 @@ export default function DetailPage() {
               </>
             )}
 
-            {/* 베스트댓글 — 본문 아래 항상 표시 */}
-            {hasComments && (
+            {/* 베스트댓글 — story(커뮤니티) 카테고리만 표시 */}
+            {hasComments && topic.category === 'story' && (
               <>
                 <div className={styles.commentSectionHeader}>베스트 댓글</div>
                 <div className={styles.commentList}>

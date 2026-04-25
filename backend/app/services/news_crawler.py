@@ -34,20 +34,17 @@ _RSS_FEEDS: dict[str, list[tuple[str, str]]] = {
         ("한겨레", "https://www.hani.co.kr/rss/society/"),
         ("뉴시스", "https://newsis.com/RSS/society.xml"),
         ("동아일보", "https://rss.donga.com/national.xml"),
-        ("조선일보", "https://www.chosun.com/arc/outboundfeeds/rss/category/national/?outputType=xml"),
     ],
     "economy": [
         ("경향신문", "https://www.khan.co.kr/rss/rssdata/economy_news.xml"),
         ("한겨레", "https://www.hani.co.kr/rss/economy/"),
         ("동아일보", "https://rss.donga.com/economy.xml"),
-        ("조선일보", "https://www.chosun.com/arc/outboundfeeds/rss/category/economy/?outputType=xml"),
         ("뉴시스", "https://newsis.com/RSS/economy.xml"),
     ],
     "sports": [
         ("경향신문", "http://www.khan.co.kr/rss/rssdata/kh_sports.xml"),
         ("동아일보", "https://rss.donga.com/sports.xml"),
         ("뉴시스", "https://newsis.com/RSS/sports.xml"),
-        ("조선일보", "https://www.chosun.com/arc/outboundfeeds/rss/category/sports/?outputType=xml"),
         ("한겨레", "https://www.hani.co.kr/rss/sports/"),
     ],
     "love": [  # 연예

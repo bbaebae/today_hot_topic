@@ -1195,7 +1195,6 @@ async def crawl_all() -> list[CrawledPost]:
     crawlers = [
         PannCrawler(),
         BobaedreamCrawler(),
-        DcinsideCrawler(),
     ]
     async with httpx.AsyncClient(follow_redirects=True) as client:
         results = await asyncio.gather(

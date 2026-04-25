@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import random
 import uuid
 from datetime import datetime, timezone
 
@@ -100,14 +101,20 @@ async def run_ingestion() -> dict[str, int]:
         )
         actual_topic_id = existing.data["id"] if existing.data else topic_id
 
+        # 초기 참여자 시드 (10~20명, 랜덤 비율)
+        seed_total = random.randint(10, 20)
+        a_ratio = random.uniform(0.3, 0.7)
+        seed_a = round(seed_total * a_ratio)
+        seed_b = seed_total - seed_a
+
         client.table("polls").upsert(
             {
                 "id": poll_id,
                 "topic_id": actual_topic_id,
                 "option_a_text": opt_a,
                 "option_b_text": opt_b,
-                "option_a_count": 0,
-                "option_b_count": 0,
+                "option_a_count": seed_a,
+                "option_b_count": seed_b,
                 "created_at": now,
             },
             on_conflict="topic_id",

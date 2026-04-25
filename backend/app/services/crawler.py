@@ -517,6 +517,18 @@ async def _fetch_comments(
             if t:
                 candidates.append(t)
 
+    elif source == "fmkorea":
+        for li in soup.select("li.comment_best"):
+            xe = li.select_one(".xe_content")
+            if not xe:
+                continue
+            # 답글 대상 닉네임 링크(findParent) 제거
+            for a in xe.select("a.findParent"):
+                a.decompose()
+            t = xe.get_text(separator=" ", strip=True)
+            if t:
+                candidates.append(t)
+
     seen: set[str] = set()
     result: list[str] = []
     for c in candidates:

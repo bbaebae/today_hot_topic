@@ -49,7 +49,13 @@ export function TopicItem({ topic, onClick }: TopicItemProps) {
 
         {topic.imageUrl && (
           <div className={styles.thumbnail}>
-            <img src={topic.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
+            <img
+              src={topic.imageUrl}
+              alt=""
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = 'none'; }}
+            />
           </div>
         )}
 

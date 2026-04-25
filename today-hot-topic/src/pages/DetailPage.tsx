@@ -136,6 +136,7 @@ export default function DetailPage() {
                         alt={`${topic.title} 이미지 ${i + 1}`}
                         className={styles.image}
                         referrerPolicy="no-referrer"
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
                       />
                     ))}
                   </div>

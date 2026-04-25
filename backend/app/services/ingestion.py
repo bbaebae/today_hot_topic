@@ -101,8 +101,8 @@ async def run_ingestion() -> dict[str, int]:
         )
         actual_topic_id = existing.data["id"] if existing.data else topic_id
 
-        # 초기 참여자 시드 (10~20명, 랜덤 비율)
-        seed_total = random.randint(10, 20)
+        # 초기 참여자 시드 (3~7명, 랜덤 비율)
+        seed_total = random.randint(3, 7)
         a_ratio = random.uniform(0.3, 0.7)
         seed_a = round(seed_total * a_ratio)
         seed_b = seed_total - seed_a

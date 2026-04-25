@@ -22,7 +22,7 @@ export function safeHaptic(options: HapticType): void {
 
 export function safeOpenUrl(url: string): void {
   try {
-    const result = openURL({ url }) as unknown;
+    const result = openURL(url) as unknown;
     if (result instanceof Promise) {
       result.catch(() => window.open(url, '_blank'));
     }

@@ -3,10 +3,39 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { safeOpenUrl } from '../utils/toss';
 import styles from './WebViewerPage.module.css';
 
+function toMobileUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    const host = u.hostname;
+    // 이미 모바일 서브도메인이면 그대로
+    if (host.startsWith('m.') || host.startsWith('mobile.') || host.startsWith('news.')) return url;
+    // 중앙일보 특수 케이스
+    if (host.includes('joins.com') || host.includes('joongang')) {
+      u.hostname = 'mnews.joins.com';
+      return u.toString();
+    }
+    // www. → m. 치환
+    if (host.startsWith('www.')) {
+      u.hostname = 'm.' + host.slice(4);
+      return u.toString();
+    }
+    // 서브도메인 없는 경우 m. 추가 (fmkorea.com, ruliweb.com 등)
+    const parts = host.split('.');
+    if (parts.length === 2 || (parts.length === 3 && parts[1].length <= 3)) {
+      u.hostname = 'm.' + host;
+      return u.toString();
+    }
+    return url;
+  } catch {
+    return url;
+  }
+}
+
 export default function WebViewerPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const url = params.get('url') ?? '';
+  const rawUrl = params.get('url') ?? '';
+  const url = rawUrl ? toMobileUrl(rawUrl) : '';
   const [loadError, setLoadError] = useState(false);
 
   if (!url) {

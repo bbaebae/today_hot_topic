@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { safeOpenUrl } from '../../utils/toss';
+import { useNavigate } from 'react-router-dom';
 import styles from './SummaryCard.module.css';
 
 interface SummaryCardProps {
@@ -7,6 +7,7 @@ interface SummaryCardProps {
   sourceUrl: string;
   sourceName?: string;
   createdAt: string;
+  onOpenSource?: () => void;
 }
 
 function formatTimeAgo(iso: string): string {
@@ -56,7 +57,18 @@ export function SummaryCard({
   summaries,
   sourceUrl,
   createdAt,
+  onOpenSource,
 }: SummaryCardProps) {
+  const navigate = useNavigate();
+
+  const handleOpenSource = () => {
+    if (onOpenSource) {
+      onOpenSource();
+    } else {
+      navigate(`/viewer?url=${encodeURIComponent(sourceUrl)}`);
+    }
+  };
+
   return (
     <motion.div
       className={styles.card}
@@ -94,7 +106,7 @@ export function SummaryCard({
       {sourceUrl && (
         <button
           className={styles.sourceBtn}
-          onClick={() => safeOpenUrl(sourceUrl)}
+          onClick={handleOpenSource}
         >
           원본 보기 →
         </button>

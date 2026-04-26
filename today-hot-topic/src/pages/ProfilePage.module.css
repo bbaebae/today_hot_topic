@@ -69,6 +69,53 @@
   font-size: 13px;
   opacity: 0.8;
   font-weight: 500;
+  margin-bottom: 16px;
+}
+
+.convertBtn {
+  width: 100%;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-md);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  transition: background-color 0.15s;
+}
+
+.convertBtn:active {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.convertBtn:disabled {
+  opacity: 0.4;
+}
+
+.feedAdWrapper {
+  background: #ffffff;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+.toast {
+  position: fixed;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: 20px;
+  z-index: 9999;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.toastError {
+  background: rgba(220, 38, 38, 0.85);
 }
 
 @keyframes shimmer {

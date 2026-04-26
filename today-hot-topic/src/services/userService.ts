@@ -1,4 +1,4 @@
-import { USE_MOCK, delay } from './api';
+import { USE_MOCK, delay, post } from './api';
 
 export async function fetchUserProfile() {
   if (USE_MOCK) {
@@ -8,6 +8,7 @@ export async function fetchUserProfile() {
         id: 'mock-user-id',
         tossUserId: 'mock-toss-user',
         isPremium: false,
+        totalPoints: 0,
         createdAt: new Date().toISOString(),
       },
     };
@@ -23,4 +24,20 @@ export async function fetchUserProfile() {
     }
     throw e;
   }
+}
+
+export async function recordAdWatched(): Promise<{ total_points: number; earned: number }> {
+  if (USE_MOCK) {
+    await delay(200);
+    return { total_points: 10, earned: 10 };
+  }
+  return post('/rewards/ad-watched', {});
+}
+
+export async function convertToTossPoints(amount: number): Promise<{ total_points: number; converted: number }> {
+  if (USE_MOCK) {
+    await delay(800);
+    return { total_points: 0, converted: amount };
+  }
+  return post('/rewards/convert', { amount });
 }

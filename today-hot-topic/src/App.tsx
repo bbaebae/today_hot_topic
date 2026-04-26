@@ -9,6 +9,7 @@ import { BottomNav } from './components/layout/BottomNav';
 import HomePage from './pages/HomePage';
 import DetailPage from './pages/DetailPage';
 import ProfilePage from './pages/ProfilePage';
+import WebViewerPage from './pages/WebViewerPage';
 import styles from './App.module.css';
 
 const pageVariants = {
@@ -25,15 +26,16 @@ const pageTransition = {
 function AnimatedRoutes() {
   const location = useLocation();
   const isDetailPage = location.pathname.startsWith('/topics/');
+  const isViewerPage = location.pathname === '/viewer';
 
   return (
     <AnimatePresence mode="wait">
       <motion.div
         key={location.pathname}
-        variants={isDetailPage ? pageVariants : undefined}
-        initial={isDetailPage ? 'initial' : false}
-        animate={isDetailPage ? 'animate' : undefined}
-        exit={isDetailPage ? 'exit' : undefined}
+        variants={isDetailPage || isViewerPage ? pageVariants : undefined}
+        initial={isDetailPage || isViewerPage ? 'initial' : false}
+        animate={isDetailPage || isViewerPage ? 'animate' : undefined}
+        exit={isDetailPage || isViewerPage ? 'exit' : undefined}
         transition={pageTransition}
         className={styles.pageWrapper}
       >
@@ -41,6 +43,7 @@ function AnimatedRoutes() {
           <Route path="/" element={<HomePage />} />
           <Route path="/topics/:id" element={<DetailPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/viewer" element={<WebViewerPage />} />
         </Routes>
       </motion.div>
     </AnimatePresence>
@@ -65,6 +68,7 @@ function AppInner() {
   }, []);
   const location = useLocation();
   const isDetailPage = location.pathname.startsWith('/topics/');
+  const isViewerPage = location.pathname === '/viewer';
 
   if (authLoading) {
     return <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center' }} />;
@@ -75,7 +79,7 @@ function AppInner() {
       <div className={styles.content}>
         <AnimatedRoutes />
       </div>
-      {!isDetailPage && <BottomNav />}
+      {!isDetailPage && !isViewerPage && <BottomNav />}
     </div>
   );
 }

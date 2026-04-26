@@ -1,8 +1,9 @@
-import { Fragment } from 'react';
+import { Fragment, useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTopics } from '../hooks/useTopics';
 import { useProfile } from '../hooks/useProfile';
 import { useFullScreenAd } from '../hooks/useFullScreenAd';
+import { useRewardedAd } from '../hooks/useRewardedAd';
 import { CategoryTab } from '../components/home/CategoryTab';
 import { NewsSubTab } from '../components/home/NewsSubTab';
 import { TrendingSection } from '../components/home/TrendingSection';
@@ -12,10 +13,23 @@ import { BannerAdItem } from '../components/home/BannerAdItem';
 import type { MainTab, NewsSubCategory } from '../types/topic';
 import styles from './HomePage.module.css';
 
+const PAGE_SIZE = 5;
+const SS_VISIBLE = 'home_visible_count';
+const SS_SCROLL = 'home_scroll_top';
+
 export default function HomePage() {
   const navigate = useNavigate();
-  const { user } = useProfile();
+  const { user, refetch: refetchProfile } = useProfile();
   const { maybeShow } = useFullScreenAd();
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  const [visibleCount, setVisibleCount] = useState(() => {
+    const saved = sessionStorage.getItem(SS_VISIBLE);
+    return saved ? parseInt(saved, 10) : PAGE_SIZE;
+  });
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [earnedToast, setEarnedToast] = useState<string | null>(null);
+
   const {
     topics,
     isLoading,
@@ -26,21 +40,74 @@ export default function HomePage() {
     refresh,
   } = useTopics('story');
 
+  // visibleCount 변경 시 저장
+  useEffect(() => {
+    sessionStorage.setItem(SS_VISIBLE, String(visibleCount));
+  }, [visibleCount]);
+
+  // 데이터 로드 완료 후 스크롤 복원
+  useEffect(() => {
+    if (!isLoading && scrollAreaRef.current) {
+      const saved = sessionStorage.getItem(SS_SCROLL);
+      if (saved) {
+        scrollAreaRef.current.scrollTop = parseInt(saved, 10);
+        sessionStorage.removeItem(SS_SCROLL);
+      }
+    }
+  }, [isLoading]);
+
+  // 카테고리 변경 시 표시 개수 초기화
   const handleMainTabChange = (tab: MainTab) => {
+    setVisibleCount(PAGE_SIZE);
+    sessionStorage.removeItem(SS_SCROLL);
+    sessionStorage.removeItem(SS_VISIBLE);
     setMainTab(tab);
   };
 
   const handleNewsSubChange = (sub: NewsSubCategory) => {
+    setVisibleCount(PAGE_SIZE);
+    sessionStorage.removeItem(SS_SCROLL);
+    sessionStorage.removeItem(SS_VISIBLE);
     setNewsSubCategory(sub);
   };
 
   const handleTopicClick = (topicId: string) => {
-    // 프리미엄 유저는 광고 없이 바로 이동
+    if (scrollAreaRef.current) {
+      sessionStorage.setItem(SS_SCROLL, String(scrollAreaRef.current.scrollTop));
+    }
     maybeShow(() => navigate(`/topics/${topicId}`), user?.isPremium ?? false);
   };
 
+  const showToast = (msg: string) => {
+    setEarnedToast(msg);
+    setTimeout(() => setEarnedToast(null), 2500);
+  };
+
+  const onPointsEarned = useCallback((points: number) => {
+    refetchProfile();
+    showToast(`+${points}P 적립!`);
+  }, [refetchProfile]);
+
+  const { showAd } = useRewardedAd(onPointsEarned);
+
+  const handleLoadMore = () => {
+    setIsLoadingMore(true);
+    showAd(() => {
+      setVisibleCount((prev) => prev + PAGE_SIZE);
+      setIsLoadingMore(false);
+    });
+  };
+
+  const visibleTopics = topics.slice(0, visibleCount);
+  const hasMore = topics.length > visibleCount;
+
   return (
     <div className={styles.page}>
+      {/* 포인트 적립 토스트 */}
+      {earnedToast && (
+        <div className={styles.toast}>{earnedToast}</div>
+      )}
+
       {/* 헤더 */}
       <header className={styles.header}>
         <div className={styles.headerInner}>
@@ -67,7 +134,7 @@ export default function HomePage() {
       </header>
 
       {/* 스크롤 영역 */}
-      <div className={styles.scrollArea}>
+      <div className={styles.scrollArea} ref={scrollAreaRef}>
         {/* 실시간 검색어 */}
         <TrendingSection />
 
@@ -83,24 +150,57 @@ export default function HomePage() {
 
         {/* 토픽 리스트 */}
         {isLoading ? (
-          <TopicSkeleton count={8} />
+          <TopicSkeleton count={PAGE_SIZE} />
         ) : topics.length === 0 ? (
           <div className={styles.empty}>
             <p>지금은 핫토픽이 없어요 🤔</p>
             <button onClick={refresh}>다시 불러오기</button>
           </div>
         ) : (
-          <ul className={styles.topicList}>
-            {topics.map((topic, index) => (
-              <Fragment key={topic.id}>
-                <TopicItem
-                  topic={topic}
-                  onClick={() => handleTopicClick(topic.id)}
-                />
-                {(index + 1) % 5 === 0 && <BannerAdItem key={`banner-${index}`} />}
-              </Fragment>
-            ))}
-          </ul>
+          <>
+            <ul className={styles.topicList}>
+              {visibleTopics.map((topic, index) => (
+                <Fragment key={topic.id}>
+                  <TopicItem
+                    topic={topic}
+                    onClick={() => handleTopicClick(topic.id)}
+                  />
+                  {(index + 1) % 4 === 0 && index < visibleCount - 1 && (
+                    <BannerAdItem key={`banner-${index}`} />
+                  )}
+                </Fragment>
+              ))}
+            </ul>
+
+            {hasMore && (
+              <div className={styles.loadMoreWrapper}>
+                <button
+                  className={styles.loadMoreBtn}
+                  onClick={handleLoadMore}
+                  disabled={isLoadingMore}
+                >
+                  {isLoadingMore ? (
+                    '광고 로딩 중...'
+                  ) : (
+                    <>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <circle
+                          cx="12" cy="12" r="10"
+                          stroke="currentColor" strokeWidth="2"
+                        />
+                        <path
+                          d="M12 8v8M8 12h8"
+                          stroke="currentColor" strokeWidth="2"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      광고 보고 더보기
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

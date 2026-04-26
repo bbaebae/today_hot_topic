@@ -2,12 +2,14 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { loadFullScreenAd, showFullScreenAd } from '@apps-in-toss/web-framework';
 
 const AD_GROUP_ID =
-  import.meta.env.VITE_INTERSTITIAL_AD_GROUP_ID ?? 'ait.dev.43daa14da3ae487b';
+  import.meta.env.VITE_INTERSTITIAL_AD_GROUP_ID ?? 'ait.v2.live.6eca1c2eb37644af';
 
 // 최소 N번 클릭 후부터 광고 노출 대상
 const MIN_CLICKS_BEFORE_AD = 3;
 // 노출 대상이 된 후 광고를 실제로 보여줄 확률 (0~1)
-const AD_PROBABILITY = 0.4;
+const AD_PROBABILITY = 0.6;
+
+const SS_CLICK_COUNT = 'ad_click_count';
 
 function isFnSupported(fn: { isSupported?: () => boolean }): boolean {
   try {
@@ -20,7 +22,7 @@ function isFnSupported(fn: { isSupported?: () => boolean }): boolean {
 export function useFullScreenAd() {
   const [isLoaded, setIsLoaded] = useState(false);
   const unregisterRef = useRef<(() => void) | null>(null);
-  const clickCountRef = useRef(0);
+  const clickCountRef = useRef(parseInt(sessionStorage.getItem(SS_CLICK_COUNT) ?? '0', 10));
 
   const loadAd = useCallback(() => {
     if (!isFnSupported(loadFullScreenAd)) return;
@@ -55,6 +57,7 @@ export function useFullScreenAd() {
   const maybeShow = useCallback(
     (onNavigate: () => void, skip = false) => {
       clickCountRef.current += 1;
+      sessionStorage.setItem(SS_CLICK_COUNT, String(clickCountRef.current));
 
       const shouldShow =
         !skip &&
@@ -70,6 +73,7 @@ export function useFullScreenAd() {
 
       // 광고 노출 → 카운터 리셋
       clickCountRef.current = 0;
+      sessionStorage.setItem(SS_CLICK_COUNT, '0');
 
       showFullScreenAd({
         options: { adGroupId: AD_GROUP_ID },

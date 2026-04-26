@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from 'react';
 import { TossAds } from '@apps-in-toss/web-framework';
 
 const BANNER_AD_GROUP_ID =
-  import.meta.env.VITE_BANNER_AD_GROUP_ID ?? 'ait-ad-test-banner-id';
+  import.meta.env.VITE_BANNER_AD_GROUP_ID ?? 'ait.v2.live.e3d41152455a4fd8';
 
 export function BannerAdItem() {
   const containerRef = useRef<HTMLDivElement>(null);

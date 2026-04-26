@@ -1,12 +1,44 @@
 // v2: RichBody inline image rendering
+import { useRef, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { TossAds } from '@apps-in-toss/web-framework';
 import { useTopicDetail } from '../hooks/useTopicDetail';
 import { useVote } from '../hooks/useVote';
+import { useFullScreenAd } from '../hooks/useFullScreenAd';
 import { NavBar } from '../components/layout/NavBar';
 import { SummaryCard } from '../components/detail/SummaryCard';
 import { PollSection } from '../components/detail/PollSection';
 import styles from './DetailPage.module.css';
+
+const BANNER_AD_GROUP_ID =
+  import.meta.env.VITE_BANNER_AD_GROUP_ID ?? 'ait.v2.live.e3d41152455a4fd8';
+
+function DetailBannerAd() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    try {
+      if (!TossAds.attachBanner.isSupported() || !containerRef.current) { setVisible(false); return; }
+      const attached = TossAds.attachBanner(BANNER_AD_GROUP_ID, containerRef.current, {
+        tone: 'grey',
+        variant: 'expanded',
+        theme: 'light',
+        callbacks: {
+          onNoFill: () => setVisible(false),
+          onAdFailedToRender: () => setVisible(false),
+        },
+      });
+      return () => attached?.destroy();
+    } catch {
+      setVisible(false);
+    }
+  }, []);
+
+  if (!visible) return null;
+  return <div ref={containerRef} style={{ width: '100%' }} />;
+}
 
 const IMG_MARKER_RE = /(\[IMG:[^\]]+\])/;
 
@@ -31,6 +63,7 @@ function RichBody({ body }: { body: string }) {
                 alt=""
                 className={styles.inlineImage}
                 referrerPolicy="no-referrer"
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
               />
             );
           }
@@ -71,6 +104,12 @@ export default function DetailPage() {
   const { topic, isLoading, error, hasVoted, votedOption, markVoted } =
     useTopicDetail(id ?? '');
   const { submit, isSubmitting } = useVote();
+  const { maybeShow } = useFullScreenAd();
+
+  const handleOpenSource = () => {
+    if (!topic?.sourceUrl) return;
+    maybeShow(() => navigate(`/viewer?url=${encodeURIComponent(topic.sourceUrl)}`));
+  };
 
   const hasComments = (topic?.topComments?.length ?? 0) > 0;
 
@@ -119,6 +158,7 @@ export default function DetailPage() {
               summaries={topic.summary}
               sourceUrl={topic.sourceUrl}
               createdAt={topic.createdAt}
+              onOpenSource={handleOpenSource}
             />
 
             {/* 본문 (인라인 이미지 포함) */}
@@ -127,9 +167,9 @@ export default function DetailPage() {
             ) : (
               <>
                 {/* 레거시: 이미지 상단 고정 (인라인 마커 없는 구 데이터) */}
-                {(topic.imageUrls?.length > 0 || topic.imageUrl) && (
+                {((topic.imageUrls?.length ?? 0) > 0 || topic.imageUrl) && (
                   <div className={styles.imageList}>
-                    {(topic.imageUrls?.length > 0 ? topic.imageUrls : [topic.imageUrl]).filter(Boolean).map((url, i) => (
+                    {((topic.imageUrls?.length ?? 0) > 0 ? topic.imageUrls! : [topic.imageUrl]).filter(Boolean).map((url, i) => (
                       <img
                         key={i}
                         src={url!}
@@ -165,6 +205,9 @@ export default function DetailPage() {
                 </div>
               </>
             )}
+
+            {/* 하단 배너 광고 */}
+            <DetailBannerAd />
 
             <div className={styles.bottomSpacer} />
           </motion.div>

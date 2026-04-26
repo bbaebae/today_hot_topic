@@ -914,7 +914,6 @@ async def crawl_all() -> list[CrawledPost]:
     crawlers = [
         PannCrawler(),
         BobaedreamCrawler(),
-        FmkoreaCrawler(),
     ]
     async with httpx.AsyncClient(follow_redirects=True) as client:
         results = await asyncio.gather(
@@ -922,10 +921,14 @@ async def crawl_all() -> list[CrawledPost]:
             return_exceptions=True,
         )
 
+        # 각 소스는 자체 인기순 정렬 유지, 소스 간 라운드로빈으로 교차
+        source_lists = [r for r in results if isinstance(r, list)]
         posts: list[CrawledPost] = []
-        for r in results:
-            if isinstance(r, list):
-                posts.extend(r)
+        max_len = max((len(lst) for lst in source_lists), default=0)
+        for i in range(max_len):
+            for lst in source_lists:
+                if i < len(lst):
+                    posts.append(lst[i])
 
         # 상위 10개씩만 본문 fetch (동시 5개 제한)
         sem = asyncio.Semaphore(5)

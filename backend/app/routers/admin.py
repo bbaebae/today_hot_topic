@@ -31,7 +31,7 @@ async def debug_crawl(x_admin_key: str | None = Header(None)):
     _verify(x_admin_key)
     import asyncio
     from ..services.crawler import (
-        PannCrawler, BobaedreamCrawler, FmkoreaCrawler,
+        PannCrawler, BobaedreamCrawler,
         GaeddipCrawler, DcinsideCrawler,
     )
     from ..services.news_crawler import crawl_news
@@ -40,7 +40,6 @@ async def debug_crawl(x_admin_key: str | None = Header(None)):
     crawlers = [
         ("pann", PannCrawler()),
         ("bobaedream", BobaedreamCrawler()),
-        ("fmkorea", FmkoreaCrawler()),
         ("gaeddip", GaeddipCrawler()),
         ("dcinside", DcinsideCrawler()),
     ]

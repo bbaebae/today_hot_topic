@@ -211,7 +211,23 @@
       "Bash(xargs '-I{}' bash -c 'result=$\\(unzip -p \"$1\" \"*/index.d.ts\" 2>/dev/null | grep -l \"loadFullScreenAd\" 2>/dev/null\\); [ -n \"$result\" ] && echo \"$1\"' -- '{}')",
       "Bash(unzip -p \"/Users/bbaebae/Desktop/appintoss/today-hot-topic/.yarn/cache/@apps-in-toss-web-bridge-npm-2.4.7-8a4f71db09-c6067a0480.zip\" \"node_modules/@apps-in-toss/web-bridge/dist/index.d.ts\")",
       "Bash(unzip -p \"/Users/bbaebae/Desktop/appintoss/today-hot-topic/.yarn/cache/@apps-in-toss-types-npm-2.4.7-e00c9eecbc-179f224eba.zip\" \"node_modules/@apps-in-toss/types/dist/index.d.ts\")",
-      "Bash(yarn tsc *)"
+      "Bash(yarn tsc *)",
+      "Bash(curl -s \"https://todayhottopic-production.up.railway.app/topics?category=story&limit=30\")",
+      "Bash(curl -s \"https://todayhottopic-production.up.railway.app/api/topics?category=story&limit=20\")",
+      "Bash(curl -s \"https://todayhottopic-production.up.railway.app/api/v1/topics?category=story&limit=20\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('sourceUrl:', d.get\\('sourceUrl',''\\)\\); print\\('source:', d.get\\('source',''\\)\\)\")",
+      "Bash(curl -s \"https://todayhottopic-production.up.railway.app/api/v1/topics?category=story&limit=50\")",
+      "Bash(read id *)",
+      "Bash(curl -s \"https://todayhottopic-production.up.railway.app/api/v1/admin/crawl-status\")",
+      "Bash(curl -s -H \"x-admin-key: $\\(grep -r 'ADMIN_KEY\\\\|admin_key' /Users/bbaebae/Desktop/appintoss/backend/.env)",
+      "Bash(curl -s -H \"x-admin-key: c809aefa135c959f767e73c3218f24c538a43bed189cddb453b2b1d77c005c0c\" \"https://todayhottopic-production.up.railway.app/api/v1/admin/debug-crawl\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://www.fmkorea.com/best2\" -H \"User-Agent: Mozilla/5.0 \\(Macintosh; Intel Mac OS X 10_15_7\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/120.0.0.0 Safari/537.36\" -H \"Accept-Language: ko-KR,ko;q=0.9\")",
+      "Bash(curl -s https://www.fmkorea.com/best2 -H 'User-Agent: Mozilla/5.0 \\(Macintosh; Intel Mac OS X 10_15_7\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/120.0.0.0 Safari/537.36' -H 'Accept-Language: ko-KR,ko;q=0.9')",
+      "Bash(curl -s https://www.fmkorea.com/best2 -H 'User-Agent: Mozilla/5.0 \\(Macintosh; Intel Mac OS X 10_15_7\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/120.0.0.0 Safari/537.36')",
+      "Bash(grep -o 'best2/[0-9]\\\\{9,\\\\}')",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' -H 'User-Agent: Mozilla/5.0 \\(Macintosh; Intel Mac OS X 10_15_7\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/120.0.0.0 Safari/537.36' -H 'Accept-Language: ko-KR,ko;q=0.9' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8' https://www.fmkorea.com/best2)",
+      "Bash(curl -s -X POST -H 'x-admin-key: c809aefa135c959f767e73c3218f24c538a43bed189cddb453b2b1d77c005c0c' https://todayhottopic-production.up.railway.app/api/v1/admin/reset)",
+      "Bash(curl -s -X POST -H 'x-admin-key: c809aefa135c959f767e73c3218f24c538a43bed189cddb453b2b1d77c005c0c' https://todayhottopic-production.up.railway.app/api/v1/admin/ingest)"
     ]
   }
 }

@@ -203,29 +203,42 @@ async def crawl_news() -> list[CrawledPost]:
             for post in result:
                 cat_posts[post.category].append(post)
 
-        # 카테고리별 중복 제거 + 최신순 정렬 + 상위 N개
+        # 카테고리별 중복 제거 + 언론사별 라운드로빈 + 상위 N개
         final_posts: list[CrawledPost] = []
-        for category, posts in cat_posts.items():
+        for category, cat_post_list in cat_posts.items():
+            # 언론사별로 묶어서 각각 최신순 정렬
+            by_publisher: dict[str, list[CrawledPost]] = {}
             seen_ids: set[str] = set()
             seen_titles: set[str] = set()
-            unique: list[CrawledPost] = []
-            for p in posts:
+            for p in cat_post_list:
                 if p.external_id in seen_ids:
                     continue
-                # 제목 유사 중복 방지 (앞 20자 기준)
                 title_key = re.sub(r"\s+", "", p.title[:20])
                 if title_key in seen_titles:
                     continue
                 seen_ids.add(p.external_id)
                 seen_titles.add(title_key)
-                unique.append(p)
+                pub_key = p.external_id.split("_")[0] if "_" in p.external_id else "unknown"
+                by_publisher.setdefault(pub_key, []).append(p)
 
-            # pubDate 기준 최신순 정렬
-            unique.sort(
-                key=lambda p: p.__dict__.get("_pubdate", datetime.min.replace(tzinfo=timezone.utc)),
-                reverse=True,
-            )
-            final_posts.extend(unique[:_MAX_PER_CATEGORY])
+            for pub_list in by_publisher.values():
+                pub_list.sort(
+                    key=lambda p: p.__dict__.get("_pubdate", datetime.min.replace(tzinfo=timezone.utc)),
+                    reverse=True,
+                )
+
+            # 라운드로빈: 언론사별 1위 → 2위 → ... 순으로 교차해서 20개 채움
+            publisher_lists = list(by_publisher.values())
+            interleaved: list[CrawledPost] = []
+            max_len = max((len(lst) for lst in publisher_lists), default=0)
+            for i in range(max_len):
+                for lst in publisher_lists:
+                    if i < len(lst):
+                        interleaved.append(lst[i])
+                if len(interleaved) >= _MAX_PER_CATEGORY:
+                    break
+
+            final_posts.extend(interleaved[:_MAX_PER_CATEGORY])
 
         # 본문 fetch (동시 5개 제한)
         sem = asyncio.Semaphore(5)

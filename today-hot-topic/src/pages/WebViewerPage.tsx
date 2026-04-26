@@ -7,8 +7,12 @@ function toMobileUrl(url: string): string {
   try {
     const u = new URL(url);
     const host = u.hostname;
-    // 이미 모바일 서브도메인이면 그대로
-    if (host.startsWith('m.') || host.startsWith('mobile.') || host.startsWith('news.')) return url;
+    // 이미 모바일 서브도메인
+    if (host.startsWith('m.') || host.startsWith('mobile.')) return url;
+    // 모바일 서브도메인 없는 사이트 (변환 스킵)
+    if (host.includes('bobaedream.co.kr') || host.includes('naver.com') || host.includes('coindesk')) return url;
+    // news. 서브도메인은 이미 최적화된 경우 (news.jtbc.co.kr 등)
+    if (host.startsWith('news.')) return url;
     // 중앙일보 특수 케이스
     if (host.includes('joins.com') || host.includes('joongang')) {
       u.hostname = 'mnews.joins.com';
@@ -19,13 +23,9 @@ function toMobileUrl(url: string): string {
       u.hostname = 'm.' + host.slice(4);
       return u.toString();
     }
-    // 서브도메인 없는 경우 m. 추가 (fmkorea.com, ruliweb.com 등)
-    const parts = host.split('.');
-    if (parts.length === 2 || (parts.length === 3 && parts[1].length <= 3)) {
-      u.hostname = 'm.' + host;
-      return u.toString();
-    }
-    return url;
+    // 그 외: m. 추가 (fmkorea.com → m.fmkorea.com, pann.nate.com → m.pann.nate.com)
+    u.hostname = 'm.' + host;
+    return u.toString();
   } catch {
     return url;
   }

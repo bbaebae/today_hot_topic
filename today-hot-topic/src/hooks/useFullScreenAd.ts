@@ -7,7 +7,7 @@ const AD_GROUP_ID =
 // 최소 N번 클릭 후부터 광고 노출 대상
 const MIN_CLICKS_BEFORE_AD = 3;
 // 노출 대상이 된 후 광고를 실제로 보여줄 확률 (0~1)
-const AD_PROBABILITY = 0.6;
+const AD_PROBABILITY = 0.4;
 
 const SS_CLICK_COUNT = 'ad_click_count';
 

@@ -3,6 +3,8 @@ import { safeStorage } from '../utils/toss';
 import type { TopicDetail } from '../types/topic';
 import { fetchTopicDetail } from '../services/topicService';
 
+const detailCache = new Map<string, TopicDetail>();
+
 export function useTopicDetail(topicId: string) {
   const [topic, setTopic] = useState<TopicDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -20,13 +22,23 @@ export function useTopicDetail(topicId: string) {
 
   useEffect(() => {
     let cancelled = false;
-    setIsLoading(true);
     setError(null);
-    setTopic(null);
+
+    const cached = detailCache.get(topicId);
+    if (cached) {
+      setTopic(cached);
+      setIsLoading(false);
+    } else {
+      setIsLoading(true);
+      setTopic(null);
+    }
 
     fetchTopicDetail(topicId)
       .then((data) => {
-        if (!cancelled) setTopic(data);
+        if (!cancelled) {
+          detailCache.set(topicId, data);
+          setTopic(data);
+        }
       })
       .catch((e: unknown) => {
         if (!cancelled) setError(e instanceof Error ? e.message : '불러오기 실패');

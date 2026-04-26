@@ -13,6 +13,7 @@ class UserSchema(BaseModel):
     id: str
     toss_user_id: str
     is_premium: bool
+    total_points: int = 0
     created_at: datetime
 
 

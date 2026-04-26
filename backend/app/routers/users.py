@@ -16,6 +16,7 @@ async def get_profile(user: dict = Depends(get_current_user)):
         id=user["id"],
         toss_user_id=user["toss_user_id"],
         is_premium=user.get("is_premium", False),
+        total_points=user.get("total_points", 0),
         created_at=user["created_at"],
     )
 
@@ -71,6 +72,7 @@ async def activate_premium(
         id=user["id"],
         toss_user_id=user["toss_user_id"],
         is_premium=True,
+        total_points=user.get("total_points", 0),
         created_at=user["created_at"],
     )
     return UserProfileResponse(user=user_schema)

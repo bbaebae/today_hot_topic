@@ -5,6 +5,9 @@ import { fetchTopics } from '../services/topicService';
 const MAIN_TAB_KEY = 'home_main_tab';
 const NEWS_SUB_KEY = 'home_news_sub';
 
+const topicsCache: Partial<Record<Category, { data: Topic[]; ts: number }>> = {};
+const CACHE_TTL = 3 * 60 * 1000; // 3분
+
 function getSavedMainTab(fallback: MainTab): MainTab {
   return (sessionStorage.getItem(MAIN_TAB_KEY) as MainTab) ?? fallback;
 }
@@ -34,11 +37,23 @@ export function useTopics(initialMainTab: MainTab = 'story') {
     setRawNewsSubCategory(sub);
   }, []);
 
-  const load = useCallback(async (cat: Category) => {
-    setIsLoading(true);
+  const load = useCallback(async (cat: Category, silent = false) => {
+    const cached = topicsCache[cat];
+    const fresh = cached && Date.now() - cached.ts < CACHE_TTL;
+
+    if (cached) {
+      setTopics(cached.data);
+      setIsLoading(false);
+    } else if (!silent) {
+      setIsLoading(true);
+    }
+
+    if (fresh) return; // 캐시 유효 → 재요청 생략
+
     setError(null);
     try {
       const data = await fetchTopics(cat);
+      topicsCache[cat] = { data, ts: Date.now() };
       setTopics(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : '불러오기 실패');
@@ -52,6 +67,7 @@ export function useTopics(initialMainTab: MainTab = 'story') {
   }, [effectiveCategory, load]);
 
   const refresh = useCallback(() => {
+    delete topicsCache[effectiveCategory];
     void load(effectiveCategory);
   }, [effectiveCategory, load]);
 

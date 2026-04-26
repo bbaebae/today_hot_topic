@@ -197,7 +197,21 @@
       "Bash(curl -s \"https://todayhottopic-production.up.railway.app/api/v1/topics?limit=100\")",
       "Bash(curl -s \"https://todayhottopic-production.up.railway.app/api/v1/topics/f533353b-5dd1-4d52-aa39-af74b3701561\")",
       "Bash(curl -sv \"https://todayhottopic-production.up.railway.app/api/v1/topics?limit=3\")",
-      "Bash(curl -s \"https://todayhottopic-production.up.railway.app/api/v1/topics/0f733915-d517-4450-8fc6-850af30c122b\")"
+      "Bash(curl -s \"https://todayhottopic-production.up.railway.app/api/v1/topics/0f733915-d517-4450-8fc6-850af30c122b\")",
+      "Bash(xargs ls *)",
+      "Bash(npx ait *)",
+      "Bash(unzip -p \"/Users/bbaebae/Desktop/appintoss/today-hot-topic/.yarn/cache/@apps-in-toss-web-framework-npm-2.4.7-b03a589845-c9df68f53a.zip\" \"node_modules/@apps-in-toss/web-framework/dist/index.d.ts\")",
+      "Bash(unzip -l \"/Users/bbaebae/Desktop/appintoss/today-hot-topic/.yarn/cache/@apps-in-toss-web-framework-npm-2.4.7-b03a589845-c9df68f53a.zip\")",
+      "Bash(unzip -p \"/Users/bbaebae/Desktop/appintoss/today-hot-topic/.yarn/cache/@apps-in-toss-web-framework-npm-2.4.7-b03a589845-c9df68f53a.zip\" \"node_modules/@apps-in-toss/web-framework/dist-web/index.d.ts\")",
+      "Bash(unzip -l \"/Users/bbaebae/Desktop/appintoss/today-hot-topic/.yarn/cache/@apps-in-toss-web-bridge-npm-2.4.7-8a4f71db09-c6067a0480.zip\")",
+      "Bash(unzip -p \"/Users/bbaebae/Desktop/appintoss/today-hot-topic/.yarn/cache/@apps-in-toss-web-bridge-npm-2.4.7-8a4f71db09-c6067a0480.zip\" \"node_modules/@apps-in-toss/web-bridge/dist/bridge.d.ts\")",
+      "Bash(unzip -p \"/Users/bbaebae/Desktop/appintoss/today-hot-topic/.yarn/cache/@apps-in-toss-web-bridge-npm-2.4.7-8a4f71db09-c6067a0480.zip\" \"node_modules/@apps-in-toss/web-bridge/dist/grantPromotionReward.d.ts\")",
+      "Bash(xargs -I{} sh -c 'unzip -l \"$1\" 2>/dev/null | grep -i \"TossAds\\\\|fullScreen\\\\|loadFull\" | grep -q . && echo \"$1\"' -- {})",
+      "Bash(xargs -I{} unzip -l {})",
+      "Bash(xargs '-I{}' bash -c 'result=$\\(unzip -p \"$1\" \"*/index.d.ts\" 2>/dev/null | grep -l \"loadFullScreenAd\" 2>/dev/null\\); [ -n \"$result\" ] && echo \"$1\"' -- '{}')",
+      "Bash(unzip -p \"/Users/bbaebae/Desktop/appintoss/today-hot-topic/.yarn/cache/@apps-in-toss-web-bridge-npm-2.4.7-8a4f71db09-c6067a0480.zip\" \"node_modules/@apps-in-toss/web-bridge/dist/index.d.ts\")",
+      "Bash(unzip -p \"/Users/bbaebae/Desktop/appintoss/today-hot-topic/.yarn/cache/@apps-in-toss-types-npm-2.4.7-e00c9eecbc-179f224eba.zip\" \"node_modules/@apps-in-toss/types/dist/index.d.ts\")",
+      "Bash(yarn tsc *)"
     ]
   }
 }

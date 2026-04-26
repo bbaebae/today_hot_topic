@@ -62,6 +62,8 @@ function RichBody({ body }: { body: string }) {
                 src={src}
                 alt=""
                 className={styles.inlineImage}
+                loading="lazy"
+                decoding="async"
                 referrerPolicy="no-referrer"
                 onError={(e) => { e.currentTarget.style.display = 'none'; }}
               />
@@ -175,6 +177,8 @@ export default function DetailPage() {
                         src={url!}
                         alt={`${topic.title} 이미지 ${i + 1}`}
                         className={styles.image}
+                        loading="lazy"
+                        decoding="async"
                         referrerPolicy="no-referrer"
                         onError={(e) => { e.currentTarget.style.display = 'none'; }}
                       />

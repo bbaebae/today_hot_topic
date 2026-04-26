@@ -329,6 +329,18 @@ async def _fetch_page(
             "div.inner.clear",
         ]
     elif _is_news:
+        # 한겨레: article-text 안에 구독·후원·반응 div 섞임 → junk 제거 후 p.text만 사용
+        if "hani.co.kr" in url:
+            el = soup.select_one("div.article-text")
+            if el:
+                for junk in el.select(
+                    "[class*='subscribeLink'], [class*='supportBanner'], "
+                    "[class*='reactionWrap'], [class*='BaseAd'], "
+                    "[class*='contentTextAd'], [class*='imageContainer']"
+                ):
+                    junk.decompose()
+                return _finalize(el, True, og_image, [])
+
         # 세계일보: div#mcontent는 사이드바·광고 포함 → article.viewBox2만 사용
         if "segye.com" in url:
             el = soup.select_one("article.viewBox2") or soup.select_one("div#article_txt")

@@ -125,6 +125,12 @@ _NEWS_JUNK_PATTERNS = [
     re.compile(r'\[(?:pc|m)-AD\]\s*[\w\s]*(배너|광고)\s*\(\d+x\d+\)'),   # 광고 배너 사이즈 설명
     re.compile(r'^\s*\[s\].*?\[e\]', re.DOTALL),                          # 세계일보 CMS 마커
     re.compile(r'^\s*바이라인\s*$'),                                        # 바이라인 플레이스홀더
+    re.compile(r'AD\s*Manager\s*\|\s*AD\d+'),                             # 천지일보 AD Manager 태그
+    re.compile(r'^\s*//\s*AD\s*Manager'),                                  # 천지일보 // AD Manager 주석
+    re.compile(r'PC 기사뷰 본문.*?수정\)'),                                # 천지일보 CMS 위치 주석
+    re.compile(r'<\s*(iframe|script|ins|div)\b[^>]*>'),                   # 본문에 포함된 raw HTML 태그
+    re.compile(r'</(iframe|script|ins|div)>'),                             # raw HTML 닫는 태그
+    re.compile(r'^\s*(width|height|frameborder|scrolling|topmargin|marginwidth)='),  # iframe 속성 조각
 ]
 
 
@@ -342,6 +348,23 @@ async def _fetch_page(
                     "[class*='subscribeLink'], [class*='supportBanner'], "
                     "[class*='reactionWrap'], [class*='BaseAd'], "
                     "[class*='contentTextAd'], [class*='imageContainer']"
+                ):
+                    junk.decompose()
+                return _finalize(el, True, og_image, [])
+
+        # 천지일보: 본문 div 추출 + 광고 블록 제거
+        if "newscj.com" in url:
+            el = (
+                soup.select_one("div.view-content") or
+                soup.select_one("div#article-view-content-div") or
+                soup.select_one("div.article-view-content") or
+                soup.select_one("article")
+            )
+            if el:
+                for junk in el.select(
+                    "[class*='ad'], [class*='AD'], [id*='ad'], [id*='AD'], "
+                    "script, ins, iframe, noscript, "
+                    ".relate_news, aside, .reporter_info"
                 ):
                     junk.decompose()
                 return _finalize(el, True, og_image, [])

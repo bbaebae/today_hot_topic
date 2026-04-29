@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from typing import Any, Literal
 
@@ -14,6 +15,30 @@ router = APIRouter()
 # 인메모리 캐시: 카테고리별 (데이터, 타임스탬프)
 _list_cache: dict[str, tuple[float, TopicsResponse]] = {}
 _LIST_CACHE_TTL = 60  # 1분
+
+# DB에 이미 저장된 기사 본문도 실시간 정제 (크롤러 패턴 변경 전 저장된 데이터 커버)
+_BODY_JUNK_PATTERNS = [
+    re.compile(r'KH_View_\w+\s*\[(?:pc|m)-AD\]'),
+    re.compile(r'^\s*//\s*\[(?:pc|m)-AD\]'),
+    re.compile(r'\[(?:pc|m)-AD\]\s*[\w\s]*(배너|광고)\s*\(\d+x\d+\)'),
+    re.compile(r'^\s*\[s\].*?\[e\]', re.DOTALL),
+    re.compile(r'^\s*바이라인\s*$'),
+    re.compile(r'AD\s*Manager\s*\|\s*AD\d+'),
+    re.compile(r'^\s*//\s*AD\s*Manager'),
+    re.compile(r'PC 기사뷰 본문.*?수정\)'),
+    re.compile(r'<\s*(iframe|script|ins)\b[^>]*>'),
+    re.compile(r'</(iframe|script|ins)>'),
+    re.compile(r'^\s*(width|height|frameborder|scrolling|topmargin|marginwidth)='),
+    re.compile(r'src="//adex\.|src=\'//adex\.'),
+    re.compile(r'referrerpolicy='),
+]
+
+
+def _clean_body(text: str) -> str:
+    """DB에 저장된 기사 본문을 응답 전 실시간 정제합니다."""
+    lines = text.split('\n')
+    cleaned = [line for line in lines if not any(p.search(line.strip()) for p in _BODY_JUNK_PATTERNS)]
+    return '\n'.join(cleaned).strip()
 
 Category = Literal["story", "society", "economy", "sports", "love"]
 
@@ -160,6 +185,9 @@ async def get_topic(topic_id: str):
     if _img_url and _img_url.startswith("http://"):
         _img_url = "https://" + _img_url[7:]
 
+    raw_body = row.get("body") or ""
+    cleaned_body = _clean_body(raw_body) if raw_body else ""
+
     return TopicDetail(
         id=row["id"],
         title=row["title"],
@@ -170,7 +198,7 @@ async def get_topic(topic_id: str):
         rank=row["rank"],
         created_at=row["created_at"],
         source_url=row.get("source_url", ""),
-        body=row.get("body", ""),
+        body=cleaned_body,
         summary=summary,
         top_comments=top_comments,
         poll={

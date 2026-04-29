@@ -120,6 +120,11 @@ _NEWS_JUNK_PATTERNS = [
     re.compile(r'Copyright\s*(©|ⓒ|c)'),                                  # Copyright
     re.compile(r'^\s*(작게|크게|글자\s*크기)\s*$'),                       # 폰트 버튼
     re.compile(r'^\s*(공유|인쇄|스크랩|이메일|카카오|페이스북|트위터)\s*$'),  # 공유 버튼
+    re.compile(r'KH_View_\w+\s*\[(?:pc|m)-AD\]'),                        # 경향신문 광고 슬롯 ID
+    re.compile(r'^\s*//\s*\[(?:pc|m)-AD\]'),                              # 경향신문 광고 주석
+    re.compile(r'\[(?:pc|m)-AD\]\s*[\w\s]*(배너|광고)\s*\(\d+x\d+\)'),   # 광고 배너 사이즈 설명
+    re.compile(r'^\s*\[s\].*?\[e\]', re.DOTALL),                          # 세계일보 CMS 마커
+    re.compile(r'^\s*바이라인\s*$'),                                        # 바이라인 플레이스홀더
 ]
 
 
@@ -337,6 +342,23 @@ async def _fetch_page(
                     "[class*='subscribeLink'], [class*='supportBanner'], "
                     "[class*='reactionWrap'], [class*='BaseAd'], "
                     "[class*='contentTextAd'], [class*='imageContainer']"
+                ):
+                    junk.decompose()
+                return _finalize(el, True, og_image, [])
+
+        # 경향신문: 광고 div 제거 후 본문 추출
+        if "khan.co.kr" in url:
+            el = (
+                soup.select_one("div.art_body") or
+                soup.select_one("div#article_view div.atr_txt") or
+                soup.select_one("div.atr_txt")
+            )
+            if el:
+                for junk in el.select(
+                    "[id^='KH_'], [id^='MKH_'], "
+                    "[class*='art_img_center_ad'], [class*='kyunghyang_ad'], "
+                    "[class*='_ad'], [class*='ad_wr'], "
+                    "script, .relate_news, aside"
                 ):
                     junk.decompose()
                 return _finalize(el, True, og_image, [])

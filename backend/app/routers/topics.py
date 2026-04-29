@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import json
-from typing import Literal
+import time
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -10,6 +11,10 @@ from ..schemas.topic import TopicDetail, TopicListItem, TopicsResponse
 
 router = APIRouter()
 
+# 인메모리 캐시: 카테고리별 (데이터, 타임스탬프)
+_list_cache: dict[str, tuple[float, TopicsResponse]] = {}
+_LIST_CACHE_TTL = 60  # 1분
+
 Category = Literal["story", "society", "economy", "sports", "love"]
 
 
@@ -17,6 +22,11 @@ Category = Literal["story", "society", "economy", "sports", "love"]
 async def list_topics(
     category: Category | None = Query(None, description="썰/사회/경제/스포츠/연애 필터"),
 ):
+    cache_key = category or "all"
+    cached = _list_cache.get(cache_key)
+    if cached and time.time() - cached[0] < _LIST_CACHE_TTL:
+        return cached[1]
+
     client = db()
 
     _SELECT = "id, title, category, image_url, view_count, rank, created_at"
@@ -77,7 +87,9 @@ async def list_topics(
             poll_option_a=poll.get("option_a_text", ""),
             poll_option_b=poll.get("option_b_text", ""),
         ))
-    return TopicsResponse(topics=items)
+    result = TopicsResponse(topics=items)
+    _list_cache[cache_key] = (time.time(), result)
+    return result
 
 
 @router.get("/{topic_id}", response_model=TopicDetail)

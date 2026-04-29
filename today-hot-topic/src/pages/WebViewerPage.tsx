@@ -3,6 +3,25 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { safeOpenUrl } from '../utils/toss';
 import styles from './WebViewerPage.module.css';
 
+// iframe을 차단(X-Frame-Options)하는 언론사 도메인 — 외부 브라우저로 바로 열기
+const NO_IFRAME_DOMAINS = [
+  'khan.co.kr',
+  'hani.co.kr',
+  'chosun.com',
+  'donga.com',
+  'joins.com',
+  'joongang.co.kr',
+];
+
+function isNoIframeDomain(url: string): boolean {
+  try {
+    const host = new URL(url).hostname;
+    return NO_IFRAME_DOMAINS.some((d) => host.includes(d));
+  } catch {
+    return false;
+  }
+}
+
 function toMobileUrl(url: string): string {
   try {
     const u = new URL(url);
@@ -36,12 +55,14 @@ export default function WebViewerPage() {
   const [params] = useSearchParams();
   const rawUrl = params.get('url') ?? '';
   const url = rawUrl ? toMobileUrl(rawUrl) : '';
-  const [loadError, setLoadError] = useState(false);
+  const [loadError, setLoadError] = useState(() => isNoIframeDomain(rawUrl));
 
   if (!url) {
     navigate(-1);
     return null;
   }
+
+  const hostname = (() => { try { return new URL(url).hostname.replace('www.', ''); } catch { return ''; } })();
 
   return (
     <div className={styles.page}>
@@ -51,7 +72,7 @@ export default function WebViewerPage() {
             <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
-        <span className={styles.headerUrl}>{new URL(url).hostname.replace('www.', '')}</span>
+        <span className={styles.headerUrl}>{hostname}</span>
         <button className={styles.externalBtn} onClick={() => safeOpenUrl(url)} aria-label="외부 브라우저로 열기">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
             <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />

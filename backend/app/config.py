@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     toss_api_base_url: str = "https://apps-in-toss-api.toss.im"
     toss_mtls_cert_path: str = "certs/todayhottopic_public.crt"
     toss_mtls_key_path: str = "certs/todayhottopic_private.key"
+    toss_mtls_ca_path: str | None = None  # Toss Root CA cert (없으면 시스템 CA 사용)
     toss_app_id: str = "today-hot-topic"
     toss_promotion_code: str = ""  # 앱인토스 콘솔에서 발급받은 프로모션 코드
 

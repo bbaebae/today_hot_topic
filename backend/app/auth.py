@@ -9,6 +9,7 @@
 """
 from __future__ import annotations
 
+import os
 import ssl
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -28,7 +29,9 @@ _TOSS_ME_URL = f"{settings.toss_api_base_url}/api-partner/v1/apps-in-toss/user/o
 
 
 def _build_mtls_context() -> ssl.SSLContext:
-    ca_path = settings.toss_mtls_ca_path or None
+    # CA 파일이 설정되어 있고 실제로 존재할 때만 사용, 아니면 시스템 CA 사용
+    ca_path = settings.toss_mtls_ca_path
+    ca_path = ca_path if ca_path and os.path.isfile(ca_path) else None
     ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH, cafile=ca_path)
     ctx.load_cert_chain(
         certfile=settings.toss_mtls_cert_path,

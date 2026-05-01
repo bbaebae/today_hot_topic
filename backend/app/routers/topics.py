@@ -26,11 +26,17 @@ _BODY_JUNK_PATTERNS = [
     re.compile(r'AD\s*Manager\s*\|\s*AD\d+'),
     re.compile(r'^\s*//\s*AD\s*Manager'),
     re.compile(r'PC 기사뷰 본문.*?수정\)'),
-    re.compile(r'<\s*(iframe|script|ins)\b[^>]*>'),
-    re.compile(r'</(iframe|script|ins)>'),
+    re.compile(r'<\s*(iframe|script|ins|div|span|figure|table|tr|td|th|ul|ol|li|form|input|button|select|option|header|footer|nav|aside|section|article)\b[^>]*>'),
+    re.compile(r'</(iframe|script|ins|div|span|figure|table|tr|td|th|ul|ol|li|form|input|button|select|option|header|footer|nav|aside|section|article)>'),
     re.compile(r'^\s*(width|height|frameborder|scrolling|topmargin|marginwidth)='),
     re.compile(r'src="//adex\.|src=\'//adex\.'),
     re.compile(r'referrerpolicy='),
+    re.compile(r'^\s*편집패널'),
+    re.compile(r'편집패널\s*$'),
+    re.compile(r'^\s*//\s*편집패널'),
+    re.compile(r'^\s*//\s*$'),
+    re.compile(r'^\s*class=["\']\S+["\']'),
+    re.compile(r'^\s*style=["\']\S*["\']'),
 ]
 
 

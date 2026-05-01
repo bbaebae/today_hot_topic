@@ -128,9 +128,15 @@ _NEWS_JUNK_PATTERNS = [
     re.compile(r'AD\s*Manager\s*\|\s*AD\d+'),                             # 천지일보 AD Manager 태그
     re.compile(r'^\s*//\s*AD\s*Manager'),                                  # 천지일보 // AD Manager 주석
     re.compile(r'PC 기사뷰 본문.*?수정\)'),                                # 천지일보 CMS 위치 주석
-    re.compile(r'<\s*(iframe|script|ins|div)\b[^>]*>'),                   # 본문에 포함된 raw HTML 태그
-    re.compile(r'</(iframe|script|ins|div)>'),                             # raw HTML 닫는 태그
+    re.compile(r'<\s*(iframe|script|ins|div|span|figure|table|tr|td|th|ul|ol|li|form|input|button|select|option|header|footer|nav|aside|section|article)\b[^>]*>'),
+    re.compile(r'</(iframe|script|ins|div|span|figure|table|tr|td|th|ul|ol|li|form|input|button|select|option|header|footer|nav|aside|section|article)>'),
     re.compile(r'^\s*(width|height|frameborder|scrolling|topmargin|marginwidth)='),  # iframe 속성 조각
+    re.compile(r'^\s*편집패널'),                                            # 천지일보 편집패널 마커
+    re.compile(r'편집패널\s*$'),
+    re.compile(r'^\s*//\s*편집패널'),
+    re.compile(r'^\s*//\s*$'),                                             # 빈 주석줄
+    re.compile(r'^\s*class=["\']\S+["\']'),                                # 고아 class 속성
+    re.compile(r'^\s*style=["\']\S*["\']'),                                # 고아 style 속성
 ]
 
 

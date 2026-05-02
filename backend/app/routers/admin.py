@@ -424,6 +424,71 @@ async def refresh_community(
     return {"ok": True, "message": "커뮤니티 토픽 body·이미지·댓글 일괄 재수집 시작"}
 
 
+@router.post("/refresh-polls")
+async def refresh_polls(
+    background_tasks: BackgroundTasks,
+    x_admin_key: str | None = Header(None),
+):
+    """모든 토픽의 투표 선택지를 AI로 재생성합니다 (투표 수는 유지)."""
+    _verify(x_admin_key)
+
+    async def _run():
+        import asyncio
+        import json
+        import logging
+        from ..database import db
+        from ..services.summarizer import summarize
+
+        logger = logging.getLogger(__name__)
+        client = db()
+
+        res = client.table("topics").select(
+            "id, title, body, category, top_comments_json, image_urls_json"
+        ).limit(300).execute()
+        rows = res.data or []
+        logger.info("refresh-polls: %d개 토픽 poll 재생성 시작", len(rows))
+
+        sem = asyncio.Semaphore(5)
+
+        async def refresh_one(row: dict) -> None:
+            try:
+                top_comments: list[str] = []
+                raw_c = row.get("top_comments_json") or "[]"
+                try:
+                    top_comments = json.loads(raw_c) if isinstance(raw_c, str) else []
+                except Exception:
+                    pass
+
+                image_urls: list[str] = []
+                raw_i = row.get("image_urls_json") or "[]"
+                try:
+                    image_urls = json.loads(raw_i) if isinstance(raw_i, str) else []
+                except Exception:
+                    pass
+
+                async with sem:
+                    _, (opt_a, opt_b) = await summarize(
+                        row["title"],
+                        row.get("body") or "",
+                        row.get("category", "story"),
+                        image_urls or None,
+                        top_comments or None,
+                    )
+
+                client.table("polls").update(
+                    {"option_a_text": opt_a, "option_b_text": opt_b}
+                ).eq("topic_id", row["id"]).execute()
+
+            except Exception as e:
+                logger.error("refresh-polls: topic %s 실패: %s", row["id"], e)
+
+        await asyncio.gather(*[refresh_one(r) for r in rows], return_exceptions=True)
+        logger.info("refresh-polls: 완료")
+
+    background_tasks.add_task(_run)
+    return {"ok": True, "message": "poll 재생성 시작 (백그라운드)"}
+
+
 @router.post("/reset-source")
 async def reset_source(
     source: str = "naver_news",

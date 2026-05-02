@@ -6,6 +6,7 @@ x-admin-key 헤더로 무단 호출을 방지합니다.
 from __future__ import annotations
 
 import os
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
 
@@ -475,9 +476,31 @@ async def refresh_polls(
                         top_comments or None,
                     )
 
-                client.table("polls").update(
-                    {"option_a_text": opt_a, "option_b_text": opt_b}
-                ).eq("topic_id", row["id"]).execute()
+                import random, uuid as _uuid
+                existing_poll = (
+                    client.table("polls")
+                    .select("id")
+                    .eq("topic_id", row["id"])
+                    .maybe_single()
+                    .execute()
+                )
+                if existing_poll.data:
+                    client.table("polls").update(
+                        {"option_a_text": opt_a, "option_b_text": opt_b}
+                    ).eq("topic_id", row["id"]).execute()
+                else:
+                    seed_total = random.randint(3, 7)
+                    a_ratio = random.uniform(0.3, 0.7)
+                    seed_a = round(seed_total * a_ratio)
+                    client.table("polls").insert({
+                        "id": str(_uuid.uuid4()),
+                        "topic_id": row["id"],
+                        "option_a_text": opt_a,
+                        "option_b_text": opt_b,
+                        "option_a_count": seed_a,
+                        "option_b_count": seed_total - seed_a,
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                    }).execute()
 
             except Exception as e:
                 logger.error("refresh-polls: topic %s 실패: %s", row["id"], e)

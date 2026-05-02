@@ -107,19 +107,30 @@ async def run_ingestion() -> dict[str, int]:
         seed_a = round(seed_total * a_ratio)
         seed_b = seed_total - seed_a
 
-        client.table("polls").upsert(
-            {
-                "id": poll_id,
-                "topic_id": actual_topic_id,
-                "option_a_text": opt_a,
-                "option_b_text": opt_b,
-                "option_a_count": seed_a,
-                "option_b_count": seed_b,
-                "created_at": now,
-            },
-            on_conflict="topic_id",
-            ignore_duplicates=True,
-        ).execute()
+        existing_poll = (
+            client.table("polls")
+            .select("id")
+            .eq("topic_id", actual_topic_id)
+            .maybe_single()
+            .execute()
+        )
+        if existing_poll.data:
+            # 텍스트만 업데이트, 투표 수는 유지
+            client.table("polls").update(
+                {"option_a_text": opt_a, "option_b_text": opt_b}
+            ).eq("topic_id", actual_topic_id).execute()
+        else:
+            client.table("polls").insert(
+                {
+                    "id": poll_id,
+                    "topic_id": actual_topic_id,
+                    "option_a_text": opt_a,
+                    "option_b_text": opt_b,
+                    "option_a_count": seed_a,
+                    "option_b_count": seed_b,
+                    "created_at": now,
+                }
+            ).execute()
 
     # 랭킹 재계산
     await recompute_ranks()

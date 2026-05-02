@@ -176,10 +176,10 @@ async def get_topic(topic_id: str):
         client.table("polls")
         .select("*")
         .eq("topic_id", topic_id)
-        .maybe_single()
+        .limit(1)
         .execute()
     )
-    poll_data = poll_res.data or {}
+    poll_data = (poll_res.data[0] if poll_res.data else None) or {}
 
     # Increment view count (fire-and-forget, ignore errors)
     try:

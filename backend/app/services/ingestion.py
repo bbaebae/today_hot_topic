@@ -107,10 +107,10 @@ async def run_ingestion() -> dict[str, int]:
                 .select("id")
                 .eq("source", post.source)
                 .eq("external_id", post.external_id)
-                .maybe_single()
+                .limit(1)
                 .execute()
             )
-            actual_topic_id = existing.data["id"] if (existing.data and existing.data.get("id")) else topic_id
+            actual_topic_id = existing.data[0]["id"] if existing.data else topic_id
 
             # 초기 참여자 시드 (3~7명, 랜덤 비율)
             seed_total = random.randint(3, 7)
@@ -122,7 +122,7 @@ async def run_ingestion() -> dict[str, int]:
                 client.table("polls")
                 .select("id")
                 .eq("topic_id", actual_topic_id)
-                .maybe_single()
+                .limit(1)
                 .execute()
             )
             if existing_poll.data:

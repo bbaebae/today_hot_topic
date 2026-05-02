@@ -481,7 +481,7 @@ async def refresh_polls(
                     client.table("polls")
                     .select("id")
                     .eq("topic_id", row["id"])
-                    .maybe_single()
+                    .limit(1)
                     .execute()
                 )
                 if existing_poll.data:

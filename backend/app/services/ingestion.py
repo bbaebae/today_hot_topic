@@ -59,80 +59,94 @@ async def run_ingestion() -> dict[str, int]:
                 post.top_comments or None,
             )
 
-    results = await asyncio.gather(*[summarize_with_limit(p) for p in new_posts])
+    results = await asyncio.gather(
+        *[summarize_with_limit(p) for p in new_posts],
+        return_exceptions=True,
+    )
 
     # Supabase 저장
+    import logging
+    _logger = logging.getLogger(__name__)
     now = datetime.now(timezone.utc).isoformat()
-    for post, (summary_lines, poll_opts) in zip(new_posts, results):
+    saved = 0
+    for post, result in zip(new_posts, results):
+        if isinstance(result, Exception):
+            _logger.error("summarize 실패 [%s]: %s", post.title[:30], result)
+            continue
+
+        summary_lines, poll_opts = result
         topic_id = str(uuid.uuid4())
         poll_id = str(uuid.uuid4())
-
         opt_a, opt_b = poll_opts
 
-        client.table("topics").upsert(
-            {
-                "id": topic_id,
-                "title": post.title,
-                "category": post.category,
-                "source": post.source,
-                "external_id": post.external_id,
-                "source_url": post.url,
-                "image_url": post.image_url,
-                "image_urls_json": json.dumps(post.image_urls, ensure_ascii=False) if post.image_urls else None,
-                "top_comments_json": json.dumps(post.top_comments, ensure_ascii=False) if post.top_comments else None,
-                "view_count": min(post.view_count, 2_000_000_000),
-                "rank": 9999,
-                "body": post.body,
-                "summary_json": json.dumps(summary_lines, ensure_ascii=False),
-                "created_at": now,
-            },
-            on_conflict="source,external_id",
-            ignore_duplicates=True,
-        ).execute()
-
-        # 실제 저장된 topic_id 조회 (중복 시 기존 ID 사용)
-        existing = (
-            client.table("topics")
-            .select("id")
-            .eq("source", post.source)
-            .eq("external_id", post.external_id)
-            .maybe_single()
-            .execute()
-        )
-        actual_topic_id = existing.data["id"] if existing.data else topic_id
-
-        # 초기 참여자 시드 (3~7명, 랜덤 비율)
-        seed_total = random.randint(3, 7)
-        a_ratio = random.uniform(0.3, 0.7)
-        seed_a = round(seed_total * a_ratio)
-        seed_b = seed_total - seed_a
-
-        existing_poll = (
-            client.table("polls")
-            .select("id")
-            .eq("topic_id", actual_topic_id)
-            .maybe_single()
-            .execute()
-        )
-        if existing_poll.data:
-            # 텍스트만 업데이트, 투표 수는 유지
-            client.table("polls").update(
-                {"option_a_text": opt_a, "option_b_text": opt_b}
-            ).eq("topic_id", actual_topic_id).execute()
-        else:
-            client.table("polls").insert(
+        try:
+            client.table("topics").upsert(
                 {
-                    "id": poll_id,
-                    "topic_id": actual_topic_id,
-                    "option_a_text": opt_a,
-                    "option_b_text": opt_b,
-                    "option_a_count": seed_a,
-                    "option_b_count": seed_b,
+                    "id": topic_id,
+                    "title": post.title,
+                    "category": post.category,
+                    "source": post.source,
+                    "external_id": post.external_id,
+                    "source_url": post.url,
+                    "image_url": post.image_url,
+                    "image_urls_json": json.dumps(post.image_urls, ensure_ascii=False) if post.image_urls else None,
+                    "top_comments_json": json.dumps(post.top_comments, ensure_ascii=False) if post.top_comments else None,
+                    "view_count": min(post.view_count, 2_000_000_000),
+                    "rank": 9999,
+                    "body": post.body,
+                    "summary_json": json.dumps(summary_lines, ensure_ascii=False),
                     "created_at": now,
-                }
+                },
+                on_conflict="source,external_id",
+                ignore_duplicates=True,
             ).execute()
+
+            # 실제 저장된 topic_id 조회 (중복 시 기존 ID 사용)
+            existing = (
+                client.table("topics")
+                .select("id")
+                .eq("source", post.source)
+                .eq("external_id", post.external_id)
+                .maybe_single()
+                .execute()
+            )
+            actual_topic_id = existing.data["id"] if (existing.data and existing.data.get("id")) else topic_id
+
+            # 초기 참여자 시드 (3~7명, 랜덤 비율)
+            seed_total = random.randint(3, 7)
+            a_ratio = random.uniform(0.3, 0.7)
+            seed_a = round(seed_total * a_ratio)
+            seed_b = seed_total - seed_a
+
+            existing_poll = (
+                client.table("polls")
+                .select("id")
+                .eq("topic_id", actual_topic_id)
+                .maybe_single()
+                .execute()
+            )
+            if existing_poll.data:
+                client.table("polls").update(
+                    {"option_a_text": opt_a, "option_b_text": opt_b}
+                ).eq("topic_id", actual_topic_id).execute()
+            else:
+                client.table("polls").insert(
+                    {
+                        "id": poll_id,
+                        "topic_id": actual_topic_id,
+                        "option_a_text": opt_a,
+                        "option_b_text": opt_b,
+                        "option_a_count": seed_a,
+                        "option_b_count": seed_b,
+                        "created_at": now,
+                    }
+                ).execute()
+
+            saved += 1
+        except Exception as e:
+            _logger.error("저장 실패 [%s]: %s", post.title[:30], e)
 
     # 랭킹 재계산
     await recompute_ranks()
 
-    return {"crawled": len(posts), "new": len(new_posts)}
+    return {"crawled": len(posts), "new": saved}
